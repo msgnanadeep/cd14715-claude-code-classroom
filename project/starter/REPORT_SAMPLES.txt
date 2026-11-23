@@ -1,0 +1,273 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         SAMPLE REPORT CONTENT OVERVIEW                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Each PR generates 3 comprehensive reports in different formats:
+
+
+📋 JSON REPORT (Machine-Readable)
+═══════════════════════════════════════════════════════════════════════════════
+
+Structure:
+  {
+    "pullRequest": {
+      "owner": "udacity",
+      "repo": "cd14715-simple-todo-app",
+      "number": 1
+    },
+    "fileReviews": [
+      {
+        "file": "src/orchestrator.ts",
+        "codeQuality": {
+          "file": "src/orchestrator.ts",
+          "issues": [
+            {
+              "line": 47,
+              "severity": "medium",
+              "category": "best-practice",
+              "description": "...",
+              "suggestion": "..."
+            },
+            ...
+          ],
+          "overallScore": 82,
+          "summary": "..."
+        },
+        "testCoverage": {
+          "file": "src/orchestrator.ts",
+          "hasTests": false,
+          "testFiles": [],
+          "untestedPaths": [
+            {
+              "type": "function",
+              "location": "...",
+              "priority": "critical",
+              "reasoning": "...",
+              "suggestedTest": "..."
+            },
+            ...
+          ],
+          "coverageEstimate": 15,
+          "summary": "..."
+        },
+        "refactorings": {
+          "file": "src/orchestrator.ts",
+          "suggestions": [
+            {
+              "type": "extract-function",
+              "location": "...",
+              "impact": "medium",
+              "description": "...",
+              "before": "...",
+              "after": "...",
+              "benefits": "..."
+            },
+            ...
+          ],
+          "summary": "..."
+        }
+      },
+      ...
+    ],
+    "summary": {
+      "totalFiles": 6,
+      "overallScore": 76,
+      "criticalIssues": 2,
+      "highPriorityTests": 32,
+      "refactoringOpportunities": 10
+    },
+    "recommendations": [
+      {
+        "priority": "critical",
+        "category": "testing",
+        "description": "...",
+        "files": ["tests/orchestrator.test.ts", "src/orchestrator.ts", ...]
+      },
+      ...
+    ],
+    "metadata": {
+      "analyzedAt": "2026-11-23T00:00:00Z",
+      "duration": 45000,
+      "agentVersions": {
+        "orchestrator": "1.0",
+        "code-quality-analyzer": "1.0",
+        "test-coverage-analyzer": "1.0",
+        "refactoring-suggester": "1.0"
+      }
+    }
+  }
+
+Usage: Parse and process programmatically, integrate with CI/CD pipelines
+Size: 7-58K depending on analysis depth
+
+
+📝 MARKDOWN REPORT (GitHub Comments)
+═══════════════════════════════════════════════════════════════════════════════
+
+Structure:
+  # 🔍 Code Review Report
+  
+  ## Summary
+  
+  | Metric | Value |
+  |--------|-------|
+  | **Overall Score** | 76/100 |
+  | **Files Reviewed** | 6 |
+  | **Critical Issues** | 2 |
+  | **High Priority Tests** | 32 |
+  | **Refactoring Opportunities** | 10 |
+  
+  ## 🎯 Top Recommendations
+  
+  1. 🚨 **Testing**: Implement comprehensive test suite...
+     - Files: tests/orchestrator.test.ts, src/orchestrator.ts
+  
+  2. 🚨 **Security**: Remove logging of API key substrings...
+     - Files: src/main.ts
+  
+  ... (more recommendations with priority indicators)
+  
+  ## 📁 File Details
+  
+  ### 📄 `src/orchestrator.ts`
+  
+  **Quality Score:** 82/100 | **Coverage:** ~15%
+  
+  #### Issues (4)
+    - Line 47: `medium` Default model hardcoded...
+    - Line 128: `medium` Limited error context...
+    ... (more issues with line numbers and descriptions)
+  
+  #### Test Gaps (4)
+    - `reviewPullRequest() - success path` (critical priority)
+    ... (more test gaps)
+  
+  #### Refactoring Opportunities (3)
+    - **extract-function**: The large for-await loop...
+    ... (more suggestions with before/after examples)
+  
+  ### 📄 `src/main.ts`
+  
+  ... (same structure for each file)
+
+Usage: Post directly to GitHub PR comments for review
+Size: 675B - 7K (readable, condensed format)
+
+
+🌐 HTML REPORT (Web Viewing)
+═══════════════════════════════════════════════════════════════════════════════
+
+Structure:
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Code Review Report</title>
+    <style>
+      /* Professional styling with:
+         - Responsive grid layout
+         - Color-coded severity indicators
+         - Readable typography
+         - Dark/light compatibility
+      */
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Code Review Report</h1>
+    
+    <div class="summary">
+      <div class="metric">
+        <div class="metric-value">76</div>
+        <div class="metric-label">Overall Score</div>
+      </div>
+      ... (other metrics in responsive grid)
+    </div>
+    
+    <h2>🎯 Top Recommendations</h2>
+    <ul>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>testing</strong>: Implement comprehensive test suite...
+      </li>
+      ... (more recommendations with color-coded priority)
+    </ul>
+    
+    <footer>Generated at 2026-11-23T00:00:00Z • Duration: 45000ms</footer>
+  </body>
+  </html>
+
+Features:
+  ✅ Responsive design (mobile, tablet, desktop)
+  ✅ Color-coded severity (red, orange, blue, green)
+  ✅ Professional typography
+  ✅ Standalone - no external dependencies
+  ✅ Printable format
+
+Usage: View in browser, share with stakeholders, generate PDFs
+Size: 2.9K - 4.7K
+
+
+📊 SAMPLE DATA ACROSS REPORTS
+═══════════════════════════════════════════════════════════════════════════════
+
+PR #1 Summary:
+  Files: 6 (orchestrator, main, error-handler, rate-limiter, logger, report-gen)
+  Quality: 76/100
+  Issues: 14 (ranging from security to style)
+  Test Gaps: 24 (critical priority recommended for orchestrator & main)
+  Refactorings: 11 (extract functions, modernize, simplify)
+  Recommendations: 10 (prioritized by severity)
+
+PR #3 Summary:
+  Files: 4 (orchestrator, 3 agent files)
+  Quality: 70/100
+  Issues: 4 (GitHub API, test discovery, injection vulnerability)
+  Test Gaps: 8 (critical: PR fetching, subagent invocation)
+  Refactorings: 5 (extract, modernize, pattern improvement)
+  Recommendations: 12 (security, testing, integration)
+
+
+✅ VALIDATION CONFIRMATION
+═══════════════════════════════════════════════════════════════════════════════
+
+All reports have been validated against ReviewReportSchema:
+
+✅ Schema Structure:
+  - pullRequest (required) ✓
+  - fileReviews[] (required) ✓
+  - summary (required) ✓
+  - recommendations[] (required) ✓
+  - metadata (required) ✓
+
+✅ Data Types:
+  - All strings are valid UTF-8 ✓
+  - All numbers within valid ranges ✓
+  - All enums match defined values ✓
+  - Score ranges 0-100 enforced ✓
+
+✅ Content Quality:
+  - Line numbers provided ✓
+  - Categories classified ✓
+  - Priorities assigned ✓
+  - Before/after examples included ✓
+  - Actionable suggestions given ✓
+
+
+📁 REPORT LOCATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+reports/
+├── octocat-Hello-World-1.json (838B)
+├── octocat-Hello-World-1.md (558B)
+├── octocat-Hello-World-1.html (2.8K)
+├── udacity-cd14715-simple-todo-app-1.json (58K) ⭐ Largest/Most Detailed
+├── udacity-cd14715-simple-todo-app-1.md (7.0K)
+├── udacity-cd14715-simple-todo-app-1.html (4.7K)
+├── udacity-cd14715-simple-todo-app-2.json (967B)
+├── udacity-cd14715-simple-todo-app-2.md (675B)
+├── udacity-cd14715-simple-todo-app-2.html (2.9K)
+├── udacity-cd14715-simple-todo-app-3.json (14K)
+├── udacity-cd14715-simple-todo-app-3.md (3.0K)
+└── udacity-cd14715-simple-todo-app-3.html (4.0K)
+
+Total: 12 files | Total size: ~114KB | All formats: JSON, Markdown, HTML
