@@ -6,341 +6,399 @@
   },
   "fileReviews": [
     {
-      "file": "src/orchestrator.ts",
+      "file": "src/premium.ts",
       "codeQuality": {
-        "file": "src/orchestrator.ts",
+        "file": "src/premium.ts",
         "issues": [
           {
-            "line": 1,
+            "line": 24,
+            "severity": "critical",
+            "category": "security",
+            "description": "Card data exposure in memory and database. Full card details (number, expiry, CVV) are handled without encryption, violating PCI-DSS compliance. Card tokenization not implemented.",
+            "suggestion": "Use payment tokenization (Stripe, Square, Adyen) instead of handling raw card data. Store only token and last 4 digits. Never store CVV or full card number."
+          },
+          {
+            "line": 65,
+            "severity": "critical",
+            "category": "security",
+            "description": "Insufficient card validation. No Luhn algorithm check, doesn't validate card type, expiry parsing assumes year >= 2000 (Y2K bug if year='99' becomes 2099 not 1999). Easily accepts fake test numbers.",
+            "suggestion": "Use industry-standard card validation library with Luhn algorithm. Implement card type validation. Fix year parsing logic: const year = parseInt(year) + (parseInt(year) < 50 ? 2000 : 1900)"
+          },
+          {
+            "line": 100,
+            "severity": "critical",
+            "category": "security",
+            "description": "SQL injection vulnerability risk despite parameterized queries. userId and feature parameters lack validation before database execution. No input sanitization at API boundary.",
+            "suggestion": "Add validation function: if (!/^[a-zA-Z0-9_-]{20,}$/.test(userId)) throw new Error('Invalid userId'). Validate all query parameters before execution."
+          },
+          {
+            "line": 141,
+            "severity": "high",
+            "category": "security",
+            "description": "JSON parsing without error handling can crash application. Malformed JSON in features field causes unhandled exception and DoS attack vulnerability.",
+            "suggestion": "Create safeJsonParse utility: function safeJsonParse<T>(json: string, default: T): T { try { return JSON.parse(json); } catch { return default; } }"
+          },
+          {
+            "line": 24,
+            "severity": "high",
+            "category": "security",
+            "description": "Missing authentication and authorization checks. No verification that requesting user is authenticated or has permission to modify subscription. Anyone could upgrade any user.",
+            "suggestion": "Add requestingUserId parameter and verify: if (requestingUserId !== userId) throw new UnauthorizedError('Cannot modify other users subscriptions')"
+          },
+          {
+            "line": 44,
+            "severity": "high",
+            "category": "bug-risk",
+            "description": "Missing transaction rollback logic. If payment succeeds but subscription upgrade fails, money is charged but service not provided. Data consistency issue.",
+            "suggestion": "Wrap payment and subscription in database transaction: BEGIN, charge card, upgrade subscription, COMMIT. ROLLBACK if any step fails."
+          },
+          {
+            "line": 24,
             "severity": "high",
             "category": "maintainability",
-            "description": "PR data fetching mechanism not implemented - GitHub API access not configured",
-            "suggestion": "Implement proper GitHub API client initialization or use authenticated gh CLI commands"
+            "description": "Missing input validation. No type checking or validation of userId, tier, payment parameters before processing.",
+            "suggestion": "Add validation: if (!userId || userId.length === 0) throw Error. if (!['premium', 'enterprise'].includes(tier)) throw Error. Validate payment is object."
           },
           {
-            "line": 1,
-            "severity": "medium",
-            "category": "best-practice",
-            "description": "Error handling for subagent invocation failures needs improvement",
-            "suggestion": "Add retry logic and timeout handling for failed agent calls"
-          }
-        ],
-        "overallScore": 65,
-        "summary": "Orchestrator has foundational structure but lacks robust error handling and GitHub API integration for fetching PR data"
-      },
-      "testCoverage": {
-        "file": "src/orchestrator.ts",
-        "hasTests": false,
-        "testFiles": [],
-        "untestedPaths": [
-          {
-            "type": "function",
-            "location": "PR data fetching logic",
-            "priority": "critical",
-            "reasoning": "Core functionality for retrieving PR metadata and modified files",
-            "suggestedTest": "Mock GitHub API responses and test PR parsing logic"
+            "line": 155,
+            "severity": "high",
+            "category": "maintainability",
+            "description": "Inadequate error handling. Generic error messages without context. Only console.error used for logging, no structured audit trail for payment processing.",
+            "suggestion": "Create structured logger with context: logger.error('Payment failed', { userId, amount, error, timestamp }). Use typed error classes for different failure modes."
           },
           {
-            "type": "function",
-            "location": "Subagent parallel invocation",
-            "priority": "critical",
-            "reasoning": "Critical path that coordinates three analysis agents",
-            "suggestedTest": "Mock agent responses and verify parallel execution and result aggregation"
+            "line": 155,
+            "severity": "high",
+            "category": "performance",
+            "description": "N+1 query problem. hasFeatureAccess queries database for every feature check without caching. 100 feature checks = 100 database queries.",
+            "suggestion": "Implement subscription cache with 5-minute TTL. Cache getUserSubscription result and check expiry/features in memory."
           },
           {
-            "type": "branch",
-            "location": "Error handling paths",
-            "priority": "high",
-            "reasoning": "Need to test behavior when agents fail or return incomplete data",
-            "suggestedTest": "Test scenarios where one or more agents fail"
-          }
-        ],
-        "coverageEstimate": 15,
-        "summary": "No test coverage found for orchestrator. Critical functions need comprehensive testing including error scenarios"
-      },
-      "refactorings": {
-        "file": "src/orchestrator.ts",
-        "suggestions": [
-          {
-            "type": "extract-function",
-            "location": "PR data retrieval",
-            "impact": "medium",
-            "description": "Extract PR fetching logic into separate module for reusability",
-            "before": "Inline PR data fetching in orchestrator main function",
-            "after": "Create PullRequestService class with dedicated fetch methods",
-            "benefits": "Improves separation of concerns, easier to test, enables code reuse"
-          },
-          {
-            "type": "pattern-improvement",
-            "location": "Subagent invocation",
-            "impact": "high",
-            "description": "Implement Promise.all() pattern for truly parallel subagent execution",
-            "before": "Sequential or unclear parallel invocation of three agents",
-            "after": "Use Promise.all([agent1, agent2, agent3]) for each file",
-            "benefits": "Ensures true parallelism, reduces total execution time, clearer code intent"
-          },
-          {
-            "type": "extract-function",
-            "location": "Result aggregation",
-            "impact": "medium",
-            "description": "Extract aggregation logic into separate utility function",
-            "before": "Aggregation logic mixed with main orchestration flow",
-            "after": "Create ResultAggregator class with structured aggregation methods",
-            "benefits": "Improves testability and maintainability"
-          }
-        ],
-        "summary": "Orchestrator would benefit from better separation of concerns, explicit parallel patterns, and extracted aggregation logic"
-      }
-    },
-    {
-      "file": "src/agents/code-quality-analyzer.ts",
-      "codeQuality": {
-        "file": "src/agents/code-quality-analyzer.ts",
-        "issues": [
-          {
-            "line": 1,
+            "line": 134,
             "severity": "medium",
             "category": "maintainability",
-            "description": "Analyzer prompt injection vulnerability - user input not sanitized",
-            "suggestion": "Validate and sanitize file paths and content before passing to LLM prompts"
+            "description": "Code duplication. Feature arrays hardcoded inline in multiple places. Pricing and tax constants defined in function scope.",
+            "suggestion": "Extract to config file: SUBSCRIPTION_CONFIG with tiers, pricing, tax rates. Import and reuse across all functions."
+          },
+          {
+            "line": 85,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Magic numbers and hardcoded values scattered throughout file. Card length 16, CVV 3-4, tax 0.08, fee 0.029, year calculation.",
+            "suggestion": "Create constants file: CARD_NUMBER_LENGTH, CVV_MIN, CVV_MAX, TAX_RATE, PROCESSING_FEE, SUBSCRIPTION_DURATION_YEARS"
+          },
+          {
+            "line": 100,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Database error handling incomplete. Generic catch block doesn't distinguish between connection errors, duplicate key errors, or other database issues.",
+            "suggestion": "Check error.message for specific cases: if (error.includes('connection')) handle connection pooling issue. If 'duplicate' handle idempotency."
+          },
+          {
+            "line": 24,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Type safety issues. PaymentDetails doesn't distinguish between raw card data types and processed tokens. Features array is untyped string[].",
+            "suggestion": "Create branded types: CardNumber, CVV, ExpiryDate. Create FeatureId enum: 'unlimited_todos' | 'priority_support' | 'custom_themes' | 'api_access' | 'team_collaboration'"
           }
         ],
-        "overallScore": 72,
-        "summary": "Code quality analyzer has good structure but needs input validation and improved error handling"
+        "overallScore": 32,
+        "summary": "Critical payment processing module with 4 critical security vulnerabilities (PCI-DSS violation, weak card validation, SQL injection risk, unhandled JSON parsing), 5 high-severity maintainability issues (missing auth, inadequate error handling, N+1 queries), and 4 medium-severity code quality issues. This code is not production-ready and requires significant security hardening before handling real payments."
       },
       "testCoverage": {
-        "file": "src/agents/code-quality-analyzer.ts",
+        "file": "src/premium.ts",
         "hasTests": false,
         "testFiles": [],
         "untestedPaths": [
           {
             "type": "function",
-            "location": "Analysis execution",
+            "location": "processPremiumPayment (lines 24-48)",
             "priority": "critical",
-            "reasoning": "Core analysis function needs comprehensive test coverage",
-            "suggestedTest": "Test analysis of various code patterns and security vulnerabilities"
+            "reasoning": "Critical business logic handling payment processing. No tests for success path, failure path, or validation error handling. Payment logic must be thoroughly tested.",
+            "suggestedTest": "describe('processPremiumPayment', () => { it('should successfully process premium subscription', async () => { const payment = { cardNumber: '4532015112830366', expiryDate: '12/25', cvv: '123', amount: 59.76 }; const result = await processPremiumPayment('user1', payment, 'premium'); expect(result).toBe(true); }); })"
+          },
+          {
+            "type": "function",
+            "location": "validatePaymentDetails (lines 65-96)",
+            "priority": "critical",
+            "reasoning": "Card validation is critical security function. All validation branches must be tested: valid cards, invalid length, invalid CVV, invalid expiry format, expired cards.",
+            "suggestedTest": "describe('validatePaymentDetails', () => { it('should reject card with length != 16', () => { expect(validatePaymentDetails({ cardNumber: '123', expiryDate: '12/25', cvv: '123', amount: 50 })).toBe(false); }); it('should reject expired card', () => { expect(validatePaymentDetails({ cardNumber: '4532015112830366', expiryDate: '01/20', cvv: '123', amount: 50 })).toBe(false); }); })"
+          },
+          {
+            "type": "function",
+            "location": "chargeCard (lines 100-113)",
+            "priority": "critical",
+            "reasoning": "Payment gateway interaction requires testing both success and failure scenarios. Must verify database query executed correctly and error handling works.",
+            "suggestedTest": "describe('chargeCard', () => { it('should return true on successful charge', async () => { db.query.mockResolvedValue([]); const result = await chargeCard({ cardNumber: '4532015112830366', expiryDate: '12/25', cvv: '123', amount: 59.76 }, 59.76); expect(result).toBe(true); }); it('should return false on charge failure', async () => { db.query.mockRejectedValue(new Error('Payment failed')); const result = await chargeCard({...}, 59.76); expect(result).toBe(false); }); })"
+          },
+          {
+            "type": "function",
+            "location": "upgradeUserSubscription (lines 123-141)",
+            "priority": "critical",
+            "reasoning": "Subscription state change must be tested for both premium and enterprise tiers. Features array assignment must match tier configuration.",
+            "suggestedTest": "it('should include enterprise features for enterprise tier', async () => { db.query.mockResolvedValue([]); await upgradeUserSubscription('user1', 'enterprise'); const call = db.query.mock.calls[0]; const features = JSON.parse(call[1][3]); expect(features).toContain('api_access'); expect(features).toContain('team_collaboration'); })"
+          },
+          {
+            "type": "function",
+            "location": "calculateSubscriptionPrice (lines 86-98)",
+            "priority": "high",
+            "reasoning": "Pricing calculation is financial logic that must be exact. Tax and processing fee calculations need verification for both tiers.",
+            "suggestedTest": "describe('calculateSubscriptionPrice', () => { it('should calculate premium pricing with tax and fee', () => { const price = calculateSubscriptionPrice('premium'); expect(price).toBeCloseTo(10.86, 1); expect(price).toBeGreaterThan(9.99); }); it('should calculate enterprise pricing correctly', () => { const price = calculateSubscriptionPrice('enterprise'); expect(price).toBeCloseTo(54.44, 1); }); })"
+          },
+          {
+            "type": "function",
+            "location": "hasFeatureAccess (lines 143-166)",
+            "priority": "high",
+            "reasoning": "Feature access control must be tested for valid subscriptions, expired subscriptions, missing subscriptions, and multiple features.",
+            "suggestedTest": "describe('hasFeatureAccess', () => { it('should grant access to valid feature', async () => { db.query.mockResolvedValue([{ features: JSON.stringify(['unlimited_todos']), valid_until: future }]); expect(await hasFeatureAccess('user1', 'unlimited_todos')).toBe(true); }); it('should deny access to expired subscription', async () => { db.query.mockResolvedValue([{ features: JSON.stringify(['feature']), valid_until: past }]); expect(await hasFeatureAccess('user1', 'feature')).toBe(false); }); })"
+          },
+          {
+            "type": "function",
+            "location": "getUserSubscription (lines 168-182)",
+            "priority": "high",
+            "reasoning": "Subscription retrieval must handle success (single result), no subscription (empty result), and malformed JSON error cases.",
+            "suggestedTest": "describe('getUserSubscription', () => { it('should return Subscription object on success', async () => { db.query.mockResolvedValue([{ user_id: 'user1', tier: 'premium', valid_until: now, features: '[\"unlimited_todos\"]' }]); const sub = await getUserSubscription('user1'); expect(sub?.tier).toBe('premium'); expect(sub?.features).toContain('unlimited_todos'); }); it('should return null when no subscription', async () => { db.query.mockResolvedValue([]); expect(await getUserSubscription('user1')).toBeNull(); }); })"
           },
           {
             "type": "edge-case",
-            "location": "Large file handling",
+            "location": "Payment validation - card number edge cases (lines 68-72)",
             "priority": "high",
-            "reasoning": "Need to verify behavior with files exceeding token limits",
-            "suggestedTest": "Test with files > 10KB to verify truncation/chunking behavior"
-          }
-        ],
-        "coverageEstimate": 10,
-        "summary": "No test coverage. Analyzer needs tests for various code patterns and edge cases"
-      },
-      "refactorings": {
-        "file": "src/agents/code-quality-analyzer.ts",
-        "suggestions": [
-          {
-            "type": "modernize",
-            "location": "Analysis categories",
-            "impact": "low",
-            "description": "Use TypeScript const assertions for analysis category enum",
-            "before": "Analysis categories as string literals",
-            "after": "const CATEGORIES = ['security', 'performance', ...] as const",
-            "benefits": "Better type safety and IDE autocomplete"
-          }
-        ],
-        "summary": "Analyzer code is relatively clean but could benefit from modernization and input validation"
-      }
-    },
-    {
-      "file": "src/agents/test-coverage-analyzer.ts",
-      "codeQuality": {
-        "file": "src/agents/test-coverage-analyzer.ts",
-        "issues": [
-          {
-            "line": 1,
-            "severity": "high",
-            "category": "maintainability",
-            "description": "Test file discovery logic may not handle all testing frameworks",
-            "suggestion": "Support jest, vitest, mocha, and other popular test runners"
-          }
-        ],
-        "overallScore": 68,
-        "summary": "Test coverage analyzer needs broader test framework support and improved heuristics"
-      },
-      "testCoverage": {
-        "file": "src/agents/test-coverage-analyzer.ts",
-        "hasTests": false,
-        "testFiles": [],
-        "untestedPaths": [
-          {
-            "type": "function",
-            "location": "Test file discovery",
-            "priority": "critical",
-            "reasoning": "Need to verify correct identification of test files for various projects",
-            "suggestedTest": "Test discovery across different test naming conventions"
+            "reasoning": "Card number validation at length boundaries: exactly 15, exactly 16, exactly 17 digits. No Luhn algorithm check.",
+            "suggestedTest": "it('should accept exactly 16-digit card', () => { expect(validatePaymentDetails({ cardNumber: '1234567890123456', ...rest })).toBe(true); }); it('should reject 15-digit card', () => { expect(validatePaymentDetails({ cardNumber: '123456789012345', ...rest })).toBe(false); }); it('should reject 17-digit card', () => { expect(validatePaymentDetails({ cardNumber: '12345678901234567', ...rest })).toBe(false); }); }"
           },
           {
-            "type": "function",
-            "location": "Coverage estimation",
+            "type": "edge-case",
+            "location": "Payment validation - expiry date edge cases (lines 80-91)",
             "priority": "high",
-            "reasoning": "Coverage estimates drive testing recommendations",
-            "suggestedTest": "Validate coverage calculations against actual test suites"
+            "reasoning": "Expiry date parsing with year '00'-'99' needs testing. Current year 2026 means years '26'-'99' and '00'-'25' have different meanings.",
+            "suggestedTest": "it('should accept valid future expiry (12/26)', () => { expect(validatePaymentDetails({ expiryDate: '12/26', ...rest })).toBe(true); }); it('should reject expired expiry (12/20)', () => { expect(validatePaymentDetails({ expiryDate: '12/20', ...rest })).toBe(false); }); it('should handle invalid month (13/25)', () => { expect(validatePaymentDetails({ expiryDate: '13/25', ...rest })).toBe(false); });"
+          },
+          {
+            "type": "edge-case",
+            "location": "Payment processing - insufficient funds (line 39-41)",
+            "priority": "high",
+            "reasoning": "Payment amount validation must reject amounts less than calculated subscription price for both premium and enterprise tiers.",
+            "suggestedTest": "it('should reject payment with insufficient amount for premium', () => { const payment = { cardNumber, expiryDate, cvv, amount: 5.00 }; expect(() => processPremiumPayment('user', payment, 'premium')).toThrow('Insufficient payment amount'); }); it('should reject for enterprise too', () => { const payment = { ...above, amount: 20.00 }; expect(() => processPremiumPayment('user', payment, 'enterprise')).toThrow(); });"
+          },
+          {
+            "type": "edge-case",
+            "location": "Subscription - malformed JSON in features (lines 158, 164)",
+            "priority": "high",
+            "reasoning": "JSON.parse without try-catch on features field. Must test: valid JSON array, empty array, corrupted JSON, non-array values.",
+            "suggestedTest": "it('should handle malformed JSON in features', async () => { db.query.mockResolvedValue([{ features: '{invalid}', valid_until: future, ...rest }]); await expect(hasFeatureAccess('user1', 'feature')).rejects.toThrow(SyntaxError); }); it('should handle empty feature array', async () => { db.query.mockResolvedValue([{ features: '[]', valid_until: future }]); expect(await hasFeatureAccess('user1', 'any_feature')).toBe(false); });"
+          },
+          {
+            "type": "edge-case",
+            "location": "Subscription validation - expiration boundary (lines 157-159)",
+            "priority": "medium",
+            "reasoning": "Subscription expiration check at exact expiry timestamp. Test: before expiry, at exact expiry time, after expiry.",
+            "suggestedTest": "it('should grant access before expiry', async () => { const tomorrow = new Date(Date.now() + 86400000); db.query.mockResolvedValue([{ features: '[\"feature\"]', valid_until: tomorrow.toISOString() }]); expect(await hasFeatureAccess('user', 'feature')).toBe(true); }); it('should deny at exact expiry', async () => { const now = new Date(); db.query.mockResolvedValue([{ features: '[\"feature\"]', valid_until: now.toISOString() }]); expect(await hasFeatureAccess('user', 'feature')).toBe(false); });"
+          },
+          {
+            "type": "branch",
+            "location": "Payment processing - success branch (lines 46-48)",
+            "priority": "high",
+            "reasoning": "Happy path where payment succeeds and subscription is upgraded. Must verify both operations occur in sequence.",
+            "suggestedTest": "it('should upgrade subscription after successful payment', async () => { db.query.mockResolvedValue([]); await processPremiumPayment('user1', validPayment, 'premium'); expect(db.query).toHaveBeenCalledTimes(2); expect(db.query).toHaveBeenNthCalledWith(1, expect.stringContaining('payments'), ...); expect(db.query).toHaveBeenNthCalledWith(2, expect.stringContaining('subscriptions'), ...); });"
+          },
+          {
+            "type": "branch",
+            "location": "Payment processing - failure branch (lines 42-45)",
+            "priority": "high",
+            "reasoning": "Payment charge fails and returns false. Must not attempt subscription upgrade. Must handle chargeCard returning false.",
+            "suggestedTest": "it('should not upgrade subscription if charge fails', async () => { db.query.mockResolvedValueOnce(false); await processPremiumPayment('user1', payment, 'premium'); expect(db.query).toHaveBeenCalledTimes(1); expect(db.query).toHaveBeenCalledWith(expect.stringContaining('payments'), ...); });"
           }
         ],
-        "coverageEstimate": 12,
-        "summary": "No test coverage found. Critical test discovery logic needs validation"
+        "coverageEstimate": 0,
+        "summary": "ZERO test coverage. All 7 functions are completely untested. This is critical payment processing code handling real financial transactions. Missing tests include: 42+ test cases covering payment validation (card number, CVV, expiry), payment processing (success/failure paths), pricing calculations, subscription management, feature access control, edge cases (expired subscriptions, malformed JSON, boundary conditions), and error scenarios. Test coverage priority should be CRITICAL - all major code paths must have passing tests before this code can be deployed to production."
       },
       "refactorings": {
-        "file": "src/agents/test-coverage-analyzer.ts",
+        "file": "src/premium.ts",
         "suggestions": [
           {
             "type": "extract-function",
-            "location": "Test file discovery",
-            "impact": "medium",
-            "description": "Extract test discovery into separate TestFileLocator service",
-            "before": "Discovery logic embedded in analyzer",
-            "after": "Separate TestFileLocator class with framework-specific strategies",
-            "benefits": "Easier to extend with new test frameworks, better testability"
-          }
-        ],
-        "summary": "Could benefit from better separation of concerns for test discovery"
-      }
-    },
-    {
-      "file": "src/agents/refactoring-suggester.ts",
-      "codeQuality": {
-        "file": "src/agents/refactoring-suggester.ts",
-        "issues": [],
-        "overallScore": 75,
-        "summary": "Refactoring suggester has solid structure with good focus on code quality improvements"
-      },
-      "testCoverage": {
-        "file": "src/agents/refactoring-suggester.ts",
-        "hasTests": false,
-        "testFiles": [],
-        "untestedPaths": [
+            "location": "Lines 100-113 (chargeCard), 123-141 (upgradeUserSubscription)",
+            "impact": "high",
+            "description": "Extract payment processing and subscription management into separate service classes. Currently mixed concerns in single file make testing and reusability difficult.",
+            "before": "export async function processPremiumPayment(userId, payment, tier) {\n  // Payment processing + subscription upgrade mixed together\n  const paymentSuccessful = await chargeCard(payment, amount);\n  await upgradeUserSubscription(userId, tier);\n}",
+            "after": "export class PaymentService {\n  async processPayment(payment, amount) { /* payment logic */ }\n}\nexport class SubscriptionService {\n  async upgradeSubscription(userId, tier) { /* subscription logic */ }\n}\nexport async function processPremiumPayment(userId, payment, tier) {\n  await paymentService.processPayment(payment, amount);\n  await subscriptionService.upgradeSubscription(userId, tier);\n}",
+            "benefits": "Separates concerns, enables independent testing, promotes code reuse, follows Single Responsibility Principle"
+          },
           {
-            "type": "function",
-            "location": "Refactoring suggestion generation",
-            "priority": "high",
-            "reasoning": "Need to verify quality and relevance of suggestions",
-            "suggestedTest": "Test suggestion generation against code samples with known improvement opportunities"
+            "type": "simplify",
+            "location": "Lines 134-138, 86-98, 65-96 (hardcoded values)",
+            "impact": "high",
+            "description": "Extract hardcoded configuration values (pricing, tax rates, feature lists, card validation rules) into centralized config file.",
+            "before": "function calculateSubscriptionPrice(tier) {\n  const PRICING = { premium: 9.99, enterprise: 49.99 };\n  const TAX_RATE = 0.08;\n  const PROCESSING_FEE = 0.029;\n  // ...\n}\n\nasync function upgradeUserSubscription(userId, tier) {\n  const features = tier === 'premium'\n    ? ['unlimited_todos', 'priority_support', 'custom_themes']\n    : ['unlimited_todos', 'priority_support', 'custom_themes', 'api_access', 'team_collaboration'];",
+            "after": "// config/subscription-config.ts\nexport const SUBSCRIPTION_CONFIG = {\n  tiers: {\n    premium: { basePrice: 9.99, features: ['unlimited_todos', 'priority_support', 'custom_themes'] },\n    enterprise: { basePrice: 49.99, features: ['unlimited_todos', 'priority_support', 'custom_themes', 'api_access', 'team_collaboration'] }\n  },\n  taxRate: 0.08,\n  processingFeeRate: 0.029\n};\n\n// In premium.ts\nimport { SUBSCRIPTION_CONFIG } from './config/subscription-config';\nfunction calculateSubscriptionPrice(tier) {\n  const tierConfig = SUBSCRIPTION_CONFIG.tiers[tier];\n  return tierConfig.basePrice + tierConfig.basePrice * (SUBSCRIPTION_CONFIG.taxRate + SUBSCRIPTION_CONFIG.processingFeeRate);\n}",
+            "benefits": "Centralized configuration management, easier to change pricing/features, eliminates code duplication, enables environment-specific configs"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Lines 65-96, 86-98 (validation and pricing logic)",
+            "impact": "medium",
+            "description": "Replace generic error handling with typed error classes for different failure scenarios. Create ValidationError, InsufficientFundsError, PaymentProcessingError classes.",
+            "before": "if (!validatePaymentDetails(payment)) {\n  throw new Error('Invalid payment details');\n}\nif (payment.amount < amount) {\n  throw new Error('Insufficient payment amount');\n}\nif (!paymentSuccessful) {\n  return false;\n}\ncatch (error) {\n  console.error('Payment failed:', error);\n  return false;\n}",
+            "after": "// errors/payment-errors.ts\nexport class ValidationError extends Error {\n  constructor(field: string, reason: string) {\n    super(`Payment validation failed for ${field}: ${reason}`);\n    this.name = 'ValidationError';\n  }\n}\nexport class InsufficientFundsError extends Error {\n  constructor(required: number, provided: number) {\n    super(`Required: $${required}, Provided: $${provided}`);\n    this.name = 'InsufficientFundsError';\n  }\n}\n\n// In premium.ts\nif (!validatePaymentDetails(payment)) {\n  throw new ValidationError('cardNumber', 'Invalid card details');\n}\nif (payment.amount < amount) {\n  throw new InsufficientFundsError(amount, payment.amount);\n}\ncatch (error) {\n  if (error instanceof InsufficientFundsError) {\n    logger.warn('Insufficient funds', { required: error.required });\n  } else if (error instanceof ValidationError) {\n    logger.error('Payment validation failed', { field: error.field });\n  }\n}",
+            "benefits": "Better error handling and recovery, enables error-specific logic, improves logging and debugging, structured error details for monitoring"
+          },
+          {
+            "type": "modernize",
+            "location": "Lines 141, 158, 164 (JSON parsing)",
+            "impact": "medium",
+            "description": "Replace scattered JSON.parse calls with utility class for safe JSON parsing and feature validation.",
+            "before": "const features = JSON.parse(subscription.features);\nreturn features.includes(feature);",
+            "after": "// utils/feature-serializer.ts\nexport class FeatureSerializer {\n  static deserialize(featuresJson: string): string[] {\n    try {\n      const features = JSON.parse(featuresJson);\n      if (!Array.isArray(features)) throw new Error('Features must be array');\n      return features;\n    } catch (error) {\n      throw new Error(`Invalid features JSON: ${error.message}`);\n    }\n  }\n  static validateFeatures(features: string[]): void {\n    const VALID = new Set(['unlimited_todos', 'priority_support', 'custom_themes', 'api_access', 'team_collaboration']);\n    for (const f of features) {\n      if (!VALID.has(f)) throw new Error(`Invalid feature: ${f}`);\n    }\n  }\n}\n\n// In premium.ts\nconst features = FeatureSerializer.deserialize(subscription.features);\nif (features.includes(feature)) { /* ... */ }",
+            "benefits": "Centralized JSON handling, feature validation in one place, error handling for malformed data, prevents DoS attacks from bad JSON"
+          },
+          {
+            "type": "rename",
+            "location": "Lines 24-48 (processPremiumPayment function return type)",
+            "impact": "medium",
+            "description": "Change return type from boolean to Subscription to provide more information to caller. Currently returns true/false with no context.",
+            "before": "export async function processPremiumPayment(\n  userId: string,\n  payment: PaymentDetails,\n  tier: 'premium' | 'enterprise'\n): Promise<boolean> {\n  // ...\n  return true; // or false\n}",
+            "after": "export async function processPremiumPayment(\n  userId: string,\n  payment: PaymentDetails,\n  tier: 'premium' | 'enterprise'\n): Promise<Subscription> {\n  // ...\n  return await subscriptionService.upgradeSubscription(userId, tier);\n}",
+            "benefits": "More informative return value, caller gets subscription details, enables better logging and tracking, simplifies subsequent feature access checks"
+          },
+          {
+            "type": "pattern-improvement",
+            "location": "Lines 155-159 (subscription feature access)",
+            "impact": "medium",
+            "description": "Implement caching layer for subscription data to eliminate N+1 query problem. Add TTL-based subscription cache.",
+            "before": "export async function hasFeatureAccess(userId: string, feature: string): Promise<boolean> {\n  const query = 'SELECT features, valid_until FROM subscriptions WHERE user_id = $1';\n  const rows = await db.query(query, [userId]);\n  // ... database query on every call\n}",
+            "after": "// cache/subscription-cache.ts\nexport class SubscriptionCache {\n  private cache = new Map<string, { subscription: Subscription, timestamp: number }>();\n  get(userId: string): Subscription | null { /* check cache */ }\n  set(userId: string, subscription: Subscription): void { /* store with TTL */ }\n}\n\n// In subscription-service.ts\nasync hasFeatureAccess(userId: string, feature: string): Promise<boolean> {\n  let subscription = this.cache.get(userId);\n  if (!subscription) {\n    const query = 'SELECT features, valid_until FROM subscriptions WHERE user_id = $1';\n    const rows = await db.query(query, [userId]);\n    subscription = this.mapToSubscription(rows[0]);\n    this.cache.set(userId, subscription);\n  }\n  return subscription.validUntil > now && subscription.features.includes(feature);\n}",
+            "benefits": "Reduces database load, improves response times, configurable cache TTL, reduces N+1 query problem from 100 queries to 1 per user"
+          },
+          {
+            "type": "extract-function",
+            "location": "Lines 65-96 (payment validation)",
+            "impact": "low",
+            "description": "Extract card expiry date validation into separate function and add Luhn algorithm check for card number.",
+            "before": "function validatePaymentDetails(payment: PaymentDetails): boolean {\n  const { cardNumber, expiryDate, cvv } = payment;\n  if (cardNumber.length !== 16) return false;\n  if (cvv.length !== 3 && cvv.length !== 4) return false;\n  const expiryRegex = /^(0[1-9]|1[0-2])\\/\\d{2}$/;\n  if (!expiryRegex.test(expiryDate)) return false;\n  // Complex date parsing logic...\n  return true;\n}",
+            "after": "function validatePaymentDetails(payment: PaymentDetails): boolean {\n  return validateCardNumber(payment.cardNumber) &&\n         validateCVV(payment.cvv) &&\n         validateExpiryDate(payment.expiryDate);\n}\n\nfunction validateCardNumber(cardNumber: string): boolean {\n  if (!/^\\d{16}$/.test(cardNumber)) return false;\n  // Add Luhn algorithm check here\n  return luhnCheck(cardNumber);\n}\n\nfunction validateCVV(cvv: string): boolean {\n  return /^\\d{3,4}$/.test(cvv);\n}\n\nfunction validateExpiryDate(expiryDate: string): boolean {\n  const regex = /^(0[1-9]|1[0-2])\\/\\d{2}$/;\n  if (!regex.test(expiryDate)) return false;\n  const [month, year] = expiryDate.split('/');\n  const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);\n  return expiry > new Date();\n}",
+            "benefits": "Better code organization, easier to test individual validation rules, enables reuse of validation functions, clearer logic flow"
           }
         ],
-        "coverageEstimate": 15,
-        "summary": "No test coverage. Suggestion quality needs validation through tests"
-      },
-      "refactorings": {
-        "file": "src/agents/refactoring-suggester.ts",
-        "suggestions": [],
-        "summary": "Code structure is clean and well-organized. No refactoring suggestions at this time"
+        "summary": "7 major refactoring opportunities identified to improve code structure and maintainability. Highest impact: (1) Extract services for payment and subscription logic, (2) Centralize configuration to eliminate hardcoded values, (3) Implement typed error classes for better error handling, (4) Add caching layer to fix N+1 query problem, (5) Centralize JSON parsing/serialization. These refactorings will significantly improve testability, performance, and adherence to SOLID principles."
       }
     }
   ],
   "summary": {
-    "totalFiles": 4,
-    "overallScore": 70,
-    "criticalIssues": 2,
-    "highPriorityTests": 7,
-    "refactoringOpportunities": 4
+    "totalFiles": 1,
+    "overallScore": 32,
+    "criticalIssues": 8,
+    "highPriorityTests": 10,
+    "refactoringOpportunities": 7
   },
   "recommendations": [
     {
       "priority": "critical",
-      "category": "Testing",
-      "description": "Implement comprehensive test suite for orchestrator core functionality including PR data fetching, subagent invocation, and result aggregation",
+      "category": "Security - Payment Processing",
+      "description": "NEVER store raw card data (number, expiry, CVV) in memory or database. Implement payment tokenization using Stripe, Square, or Adyen. Only store token and last 4 digits. This is a PCI-DSS compliance violation.",
       "files": [
-        "src/orchestrator.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "critical",
-      "category": "Testing",
-      "description": "Add tests for code quality analyzer execution and analysis of various code patterns and security issues",
+      "category": "Security - Card Validation",
+      "description": "Replace custom card validation with industry-standard library that implements Luhn algorithm, validates card type, and handles expiry date parsing correctly. Current implementation is easily bypassed and contains Y2K bug.",
       "files": [
-        "src/agents/code-quality-analyzer.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "critical",
-      "category": "Testing",
-      "description": "Validate test file discovery logic across different test frameworks and naming conventions",
+      "category": "Security - Input Validation",
+      "description": "Add validation for all function parameters (userId, tier, payment) before processing. Implement format validation for userId and reject invalid tiers. No validation currently exists.",
       "files": [
-        "src/agents/test-coverage-analyzer.ts"
+        "src/premium.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Security - JSON Parsing",
+      "description": "Wrap all JSON.parse calls in try-catch blocks or use safe parsing utility to prevent DoS attacks from malformed JSON in database. Currently unhandled exceptions can crash application.",
+      "files": [
+        "src/premium.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Security - Authentication & Authorization",
+      "description": "Add authentication check to verify user identity and authorization to modify their own subscription. Currently any authenticated user could upgrade any other user's subscription.",
+      "files": [
+        "src/premium.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Testing - Comprehensive Test Suite",
+      "description": "Implement 42+ test cases covering: payment validation for all card/CVV/expiry scenarios, payment processing success/failure paths, pricing calculations, subscription management, feature access control, edge cases (expired subscriptions, malformed JSON, boundary conditions). Currently 0% test coverage.",
+      "files": [
+        "src/premium.ts"
       ]
     },
     {
       "priority": "high",
-      "category": "GitHub Integration",
-      "description": "Implement GitHub API client initialization and PR data fetching with proper error handling",
+      "category": "Reliability - Transaction Handling",
+      "description": "Wrap payment processing and subscription upgrade in database transaction. If payment succeeds but subscription upgrade fails, money is charged but service not provided. Use BEGIN/COMMIT/ROLLBACK.",
       "files": [
-        "src/orchestrator.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "high",
-      "category": "Security",
-      "description": "Add input validation and sanitization for file paths and content to prevent prompt injection vulnerabilities",
+      "category": "Maintainability - Error Handling",
+      "description": "Replace generic Error throws with typed error classes (ValidationError, InsufficientFundsError, PaymentProcessingError). Implement structured logging with context instead of console.error. Required for PCI-DSS audit trail.",
       "files": [
-        "src/agents/code-quality-analyzer.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "high",
-      "category": "Framework Support",
-      "description": "Extend test framework support to include jest, vitest, mocha, and other popular test runners",
+      "category": "Performance - Query Optimization",
+      "description": "Implement subscription caching with 5-minute TTL to fix N+1 query problem. Currently hasFeatureAccess queries database on every call. 100 feature checks = 100 database queries.",
       "files": [
-        "src/agents/test-coverage-analyzer.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "high",
-      "category": "Testing",
-      "description": "Add tests for refactoring suggestion quality and relevance against known code improvement opportunities",
+      "category": "Maintainability - Service Architecture",
+      "description": "Extract payment processing and subscription management into separate service classes (PaymentService, SubscriptionService). Improves testability, reusability, and separation of concerns.",
       "files": [
-        "src/agents/refactoring-suggester.ts"
+        "src/premium.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Maintainability - Configuration Management",
+      "description": "Extract hardcoded values to centralized config file: pricing tiers, tax rate, processing fee, feature lists, card validation rules. Enables environment-specific configuration.",
+      "files": [
+        "src/premium.ts"
       ]
     },
     {
       "priority": "medium",
-      "category": "Architecture",
-      "description": "Extract PR fetching logic into separate PullRequestService module for better separation of concerns",
+      "category": "Code Quality - JSON Serialization",
+      "description": "Create FeatureSerializer utility to centralize JSON parsing/serialization and feature validation. Eliminates code duplication, provides consistent error handling.",
       "files": [
-        "src/orchestrator.ts"
+        "src/premium.ts"
       ]
     },
     {
       "priority": "medium",
-      "category": "Architecture",
-      "description": "Implement Promise.all() pattern for explicit parallel subagent invocation",
+      "category": "Code Quality - Type Safety",
+      "description": "Implement branded types for CardNumber, CVV, ExpiryDate, Money to prevent invalid values. Create FeatureId enum for feature strings. Improves type safety at compile time.",
       "files": [
-        "src/orchestrator.ts"
-      ]
-    },
-    {
-      "priority": "medium",
-      "category": "Architecture",
-      "description": "Extract result aggregation logic into separate ResultAggregator utility class",
-      "files": [
-        "src/orchestrator.ts"
-      ]
-    },
-    {
-      "priority": "medium",
-      "category": "Architecture",
-      "description": "Extract test file discovery into separate TestFileLocator service with framework-specific strategies",
-      "files": [
-        "src/agents/test-coverage-analyzer.ts"
-      ]
-    },
-    {
-      "priority": "low",
-      "category": "Code Quality",
-      "description": "Modernize analysis category definitions using TypeScript const assertions",
-      "files": [
-        "src/agents/code-quality-analyzer.ts"
+        "src/premium.ts"
       ]
     }
   ],
   "metadata": {
     "analyzedAt": "2026-11-23T00:00:00Z",
-    "duration": 5000,
+    "duration": 45000,
     "agentVersions": {
       "orchestrator": "1.0",
       "code-quality-analyzer": "1.0",

@@ -31,17 +31,11 @@ export const AGENT_DESCRIPTION = {
     "Naming improvements: Suggests better variable, function, and class names for clarity",
     "Pattern migration: Recommends newer patterns (async/await, destructuring, arrow functions, etc.)",
   ],
-  skills: [
-    "code-refactoring",
-    "design-patterns",
-    "modernization-strategies",
-    "code-clarity-improvement",
-  ],
   tools: [
-    "AST analysis for code structure",
-    "Pattern matching for identifying refactoring opportunities",
-    "Code similarity detection for duplication",
-    "Framework/language version analysis",
+    "Read",    // Read file contents to analyze code structure
+    "Grep",    // Search for anti-patterns and refactoring opportunities
+    "Glob",    // Find related files for context and consistency checks
+    "Skill",   // Invoke specialized refactoring skills (code-refactoring, design-patterns, modernization-strategies, code-clarity-improvement)
   ],
 };
 
@@ -75,6 +69,12 @@ async function* generateMessages(
 
 File to analyze: ${sourceFilePath}
 Project context: ${projectContext}
+
+To perform this analysis:
+1. Use Read tool to get the file contents
+2. Use Grep tool to search for patterns and anti-patterns
+3. Use Glob tool if you need to find related files for context
+4. Use Skill to invoke specialized refactoring analysis (code-refactoring, design-patterns, modernization-strategies, code-clarity-improvement)
 
 Identify refactoring opportunities in these categories:
 
@@ -168,12 +168,12 @@ export async function suggestRefactorings(
     prompt: generateMessages(sourceFilePath, projectContext),
     options: {
       model,
-      // Skills for refactoring analysis and suggestions
+      // Real tools for file analysis
       allowedTools: [
-        "code-refactoring",              // Specific refactoring techniques
-        "design-patterns",               // Design pattern improvements
-        "modernization-strategies",      // Modern language/framework features
-        "code-clarity-improvement",      // Readability and naming improvements
+        "Read",                   // Read file contents
+        "Grep",                   // Search for patterns
+        "Glob",                   // Find related files
+        "Skill",                  // Invoke specialized refactoring skills
       ],
       outputFormat: {
         type: "json_schema",

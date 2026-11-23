@@ -3,6 +3,12 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { ReviewReport, ReviewReportSchema, ReviewReportJSONSchema } from './types/report-types.js';
 import { ORCHESTRATOR_PROMPT } from './prompts/orchestrator.prompt.js';
 import { logger } from './utils/logger.js';
+import { mcpServersConfig } from './config/mcp.config.js';
+import {
+  analyzeCodeQuality,
+  analyzeTestCoverage,
+  suggestRefactorings
+} from './agents/index.js';
 
 /**
  * Orchestrator configuration options
@@ -134,23 +140,43 @@ Please fetch the PR data, invoke all subagents to analyze modified files in para
           // Model from environment or constructor options
           model: this.model,
 
-          // ★★★ CRITICAL: allowedTools must include "Task" for subagent spawning
-          // The orchestrator prompt uses explicit language like:
-          // "Use the code-quality-analyzer agent to analyze [file]"
-          // This requires Task tool to actually invoke subagent functions
+          // ★★★ MCP Servers Configuration
+          // Connect to external MCP servers (GitHub, ESLint, etc.)
+          // These servers provide tools that the agent can invoke
+          mcpServers: mcpServersConfig,
+
+          // ★★★ CRITICAL: allowedTools configuration
           allowedTools: [
             'Task',                      // ★ CRITICAL: Enables subagent invocation
 
             // GitHub MCP tools for fetching PR data
-            'get_pull_request',          // Fetch PR metadata
-            'get_pull_request_files',    // List files changed in PR
-            'get_pull_request_diff',     // Get unified diff
-            'get_pull_request_commits',  // Get commit information
-
-            // These may be useful for orchestrator itself
-            'read_file',                 // Direct file access if needed
-            'search_code',               // Code pattern searching
+            // These use the mcp__ prefix to reference MCP server tools
+            'mcp__github__get_pull_request',          // Fetch PR metadata
+            'mcp__github__get_pull_request_files',    // List files changed in PR
+            'mcp__github__get_pull_request_diff',     // Get unified diff
+            'mcp__github__get_pull_request_commits',  // Get commit information
           ],
+
+          // ★ Agents: Register the three subagents for the Task tool
+          // These agent definitions enable the orchestrator to spawn subagents via Task tool
+          // Maps agent names to their definitions with description, prompt, and tools
+          agents: {
+            'code-quality-analyzer': {
+              description: 'Code Quality Analyzer - Analyzes code for security vulnerabilities, performance issues, and maintainability concerns. Provides comprehensive quality scores and actionable recommendations.',
+              prompt: 'You are a code quality analyzer. Analyze the provided code and identify security vulnerabilities, performance issues, and maintainability concerns. Use Read to get file contents, Grep to search for patterns, Glob to find related files, and Skill to invoke specialized analysis.',
+              tools: ['Read', 'Grep', 'Glob', 'Skill']
+            },
+            'test-coverage-analyzer': {
+              description: 'Test Coverage Analyzer - Evaluates test completeness by analyzing source code structure and comparing with existing test files. Provides actionable test suggestions for uncovered code paths.',
+              prompt: 'You are a test coverage analyzer. Analyze the provided code and identify untested code paths. Suggest specific, actionable test cases. Use Read to analyze file structure, Grep to search for existing tests, Glob to find test files, and Skill to invoke testing analysis.',
+              tools: ['Read', 'Grep', 'Glob', 'Skill']
+            },
+            'refactoring-suggester': {
+              description: 'Refactoring Suggester - Identifies opportunities to improve code structure, design patterns, and overall code clarity. Provides concrete before/after examples for modernization and architectural improvements.',
+              prompt: 'You are a refactoring suggester. Analyze the provided code and identify refactoring opportunities. Provide before/after examples. Use Read to analyze code structure, Grep to search for anti-patterns, Glob to find related files, and Skill to invoke refactoring analysis.',
+              tools: ['Read', 'Grep', 'Glob', 'Skill']
+            }
+          },
 
           // Structured output configuration
           // ReviewReportSchema must be converted to JSON Schema with $refStrategy: 'root'

@@ -47,62 +47,62 @@
   
   <div class="summary">
     <div class="metric">
-      <div class="metric-value">76</div>
+      <div class="metric-value">88</div>
       <div class="metric-label">Overall Score</div>
     </div>
     <div class="metric">
-      <div class="metric-value">6</div>
+      <div class="metric-value">1</div>
       <div class="metric-label">Files Reviewed</div>
     </div>
     <div class="metric">
-      <div class="metric-value">2</div>
+      <div class="metric-value">0</div>
       <div class="metric-label">Critical Issues</div>
     </div>
     <div class="metric">
-      <div class="metric-value">32</div>
+      <div class="metric-value">9</div>
       <div class="metric-label">Tests Needed</div>
     </div>
     <div class="metric">
-      <div class="metric-value">10</div>
+      <div class="metric-value">7</div>
       <div class="metric-label">Refactorings</div>
     </div>
   </div>
 
   <h2>🎯 Top Recommendations</h2>
   <ul>
-      <li class="rec-critical">
-        <span class="priority">[CRITICAL]</span>
-        <strong>Testing</strong>: Implement comprehensive test suite for CodeReviewOrchestrator and main.ts entry point. These are the most critical files with zero test coverage. Tests needed for orchestration flow, schema validation, error handling, and authentication validation. Recommend targeting 80%+ coverage.
-        <br><small>Files: tests/orchestrator.test.ts, src/orchestrator.ts, src/main.ts</small>
-      </li>
-    
-      <li class="rec-critical">
-        <span class="priority">[CRITICAL]</span>
-        <strong>Security</strong>: Remove logging of API key substrings in main.ts (lines 103, 121). Never log any part of credentials - use logger.info('✓ Authenticated') instead. This is a security vulnerability that could expose keys in logs/dashboards.
-        <br><small>Files: src/main.ts</small>
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Testing</strong>: Create comprehensive test suite with 40+ test cases for fixtures/clean-code.ts. The file has zero test coverage and contains critical security-sensitive functions (email validation, XSS sanitization). Priority test areas: email validation (13 tests), input sanitization (11 tests), user creation workflow (12 tests), and ID generation (3 tests).
+        <br><small>Files: fixtures/clean-code.ts</small>
       </li>
     
       <li class="rec-high">
         <span class="priority">[HIGH]</span>
-        <strong>Testing</strong>: Add test coverage for all subagent files (code-quality-analyzer.ts, test-coverage-analyzer.ts, refactoring-suggester.ts). Each agent needs tests for successful analysis, skill invocation tracking, and error handling when output is missing. Recommend 10+ tests per agent.
-        <br><small>Files: src/agents/code-quality-analyzer.ts, src/agents/test-coverage-analyzer.ts, src/agents/refactoring-suggester.ts</small>
+        <strong>Security</strong>: Improve email validation using RFC 5322 compliant validation or a well-tested library. Current regex allows invalid formats like 'a@b.c'. Consider using email-validator library or stronger regex pattern like `/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/`.
+        <br><small>Files: fixtures/clean-code.ts</small>
       </li>
     
       <li class="rec-high">
         <span class="priority">[HIGH]</span>
-        <strong>Testing</strong>: Implement validation tests for Zod schemas in src/types/analysis-results.ts. These schemas are critical for data integrity - test that valid data passes, invalid data fails, enums are enforced, and score ranges (0-100) are validated.
-        <br><small>Files: src/types/analysis-results.ts</small>
+        <strong>Refactoring</strong>: Extract validation logic from createUser() into dedicated validateCreateUserInput() function. This improves separation of concerns, testability, and allows reuse of validation logic elsewhere.
+        <br><small>Files: fixtures/clean-code.ts</small>
       </li>
     
       <li class="rec-high">
         <span class="priority">[HIGH]</span>
-        <strong>Testing</strong>: Add unit tests for error handling utilities (src/utils/error-handler.ts). Critical to test withRetry exponential backoff timing, withTimeout enforcement, and ReviewError thrown with correct error codes.
-        <br><small>Files: src/utils/error-handler.ts</small>
+        <strong>Refactoring</strong>: Optimize sanitizeInput() function by replacing four sequential .replace() calls with a single regex pass using character map. This improves performance on high-volume input processing while maintaining readability.
+        <br><small>Files: fixtures/clean-code.ts</small>
+      </li>
+    
+      <li class="rec-medium">
+        <span class="priority">[MEDIUM]</span>
+        <strong>Security</strong>: Replace Math.random()-based ID generation with cryptographically secure approach. Consider using UUID library (v4) or crypto.randomBytes() to ensure IDs cannot be predicted, especially important if used for security/authorization.
+        <br><small>Files: fixtures/clean-code.ts</small>
       </li>
     </ul>
 
   <footer>
-    Generated at 2026-11-23T00:00:00Z • Duration: 45000ms
+    Generated at 2026-11-23T10:30:45.000Z • Duration: 8745ms
   </footer>
 </body>
 </html>

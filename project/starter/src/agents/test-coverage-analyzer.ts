@@ -31,17 +31,11 @@ export const AGENT_DESCRIPTION = {
     "Actionable suggestions: Provides specific, runnable test code snippets for each untested path",
     "Priority ranking: Prioritizes untested code by criticality (critical, high, medium, low)",
   ],
-  skills: [
-    "testing-best-practices",
-    "test-generation",
-    "edge-case-analysis",
-    "code-structure-analysis",
-  ],
   tools: [
-    "AST-based code analysis to identify functions and classes",
-    "Test file pattern matching (e.g., .test.ts, .spec.ts)",
-    "Branch/condition analysis for coverage estimation",
-    "Edge case pattern recognition",
+    "Read",    // Read source file and test files to analyze structure
+    "Grep",    // Search for test patterns and existing test coverage
+    "Glob",    // Find test files and discover testing patterns
+    "Skill",   // Invoke specialized testing analysis skills (testing-best-practices, test-generation, edge-case-analysis, code-structure-analysis)
   ],
 };
 
@@ -75,6 +69,12 @@ async function* generateMessages(
 
 Source file: ${sourceFilePath}
 Test directory: ${testDirectory}
+
+To perform this analysis:
+1. Use Read tool to get the source file contents and analyze its structure
+2. Use Glob tool to find test files in the test directory
+3. Use Grep tool to search for test patterns and existing tests
+4. Use Skill to invoke specialized analysis (testing-best-practices, test-generation, edge-case-analysis, code-structure-analysis)
 
 Steps to perform:
 
@@ -147,12 +147,12 @@ export async function analyzeTestCoverage(
     prompt: generateMessages(sourceFilePath, testDirectory),
     options: {
       model,
-      // Skills for test coverage analysis
+      // Real tools for file analysis
       allowedTools: [
-        "testing-best-practices",        // Testing patterns and frameworks
-        "test-generation",               // Creating test code
-        "edge-case-analysis",            // Finding boundary conditions
-        "code-structure-analysis",       // Understanding code paths
+        "Read",                   // Read file contents
+        "Grep",                   // Search for test patterns
+        "Glob",                   // Find test files
+        "Skill",                  // Invoke specialized testing analysis skills
       ],
       outputFormat: {
         type: "json_schema",

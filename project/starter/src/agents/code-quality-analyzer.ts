@@ -29,16 +29,11 @@ export const AGENT_DESCRIPTION = {
     "Multi-file analysis: Can analyze single files or entire codebases",
     "Actionable recommendations: Provides specific fixes and improvements for each issue found",
   ],
-  skills: [
-    "javascript-best-practices",
-    "security-analysis",
-    "performance-optimization",
-    "code-review",
-  ],
   tools: [
-    "File reading and pattern searching",
-    "AST analysis for code structure",
-    "Dependency analysis",
+    "Read",    // Read file contents for analysis
+    "Grep",    // Search for patterns, vulnerabilities, and anti-patterns
+    "Glob",    // Find related files for context
+    "Skill",   // Invoke specialized analysis skills (security-analysis, performance-optimization, code-review, javascript-best-practices)
   ],
 };
 
@@ -69,10 +64,16 @@ async function* generateMessages(filePath: string, analysisScope: string) {
 
 File to analyze: ${filePath}
 
-For this file, use the appropriate analysis skills to:
-1. Identify security vulnerabilities (use javascript-best-practices and security-analysis skills)
-2. Find performance issues and optimization opportunities (use performance-optimization skill)
-3. Evaluate maintainability, complexity, and architectural concerns (use code-review skill)
+To perform this analysis:
+1. Use Read tool to get the file contents
+2. Use Grep tool to search for specific patterns (security issues, anti-patterns)
+3. Use Glob tool if you need to find related files
+4. Use Skill to invoke specialized analysis (javascript-best-practices, security-analysis, performance-optimization, code-review)
+
+For this file, perform:
+1. Security analysis - Identify security vulnerabilities (use security-analysis skill)
+2. Performance analysis - Find performance issues and optimization opportunities (use performance-optimization skill)
+3. Maintainability analysis - Evaluate complexity, readability, and architectural concerns (use code-review skill)
 
 Provide a comprehensive analysis with:
 - Specific line numbers and code context for each issue
@@ -110,17 +111,12 @@ export async function analyzeCodeQuality(
     prompt: generateMessages(filePath, analysisScope),
     options: {
       model,
-      // Skills are invoked through tool_use with "mcp__" prefix
-      // The agent can use skills like:
-      // - javascript-best-practices for code standards
-      // - security-analysis for vulnerability detection
-      // - performance-optimization for performance issues
-      // - code-review for maintainability concerns
+      // Real tools for file analysis
       allowedTools: [
-        "javascript-best-practices",
-        "security-analysis",
-        "performance-optimization",
-        "code-review",
+        "Read",                    // Read file contents
+        "Grep",                    // Search for patterns in files
+        "Glob",                    // Find related files by pattern
+        "Skill",                   // Invoke specialized analysis skills
       ],
       outputFormat: {
         type: "json_schema",

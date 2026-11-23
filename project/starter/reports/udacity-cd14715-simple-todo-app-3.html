@@ -47,23 +47,23 @@
   
   <div class="summary">
     <div class="metric">
-      <div class="metric-value">70</div>
+      <div class="metric-value">32</div>
       <div class="metric-label">Overall Score</div>
     </div>
     <div class="metric">
-      <div class="metric-value">4</div>
+      <div class="metric-value">1</div>
       <div class="metric-label">Files Reviewed</div>
     </div>
     <div class="metric">
-      <div class="metric-value">2</div>
+      <div class="metric-value">8</div>
       <div class="metric-label">Critical Issues</div>
     </div>
     <div class="metric">
-      <div class="metric-value">7</div>
+      <div class="metric-value">10</div>
       <div class="metric-label">Tests Needed</div>
     </div>
     <div class="metric">
-      <div class="metric-value">4</div>
+      <div class="metric-value">7</div>
       <div class="metric-label">Refactorings</div>
     </div>
   </div>
@@ -72,37 +72,37 @@
   <ul>
       <li class="rec-critical">
         <span class="priority">[CRITICAL]</span>
-        <strong>Testing</strong>: Implement comprehensive test suite for orchestrator core functionality including PR data fetching, subagent invocation, and result aggregation
-        <br><small>Files: src/orchestrator.ts</small>
+        <strong>Security - Payment Processing</strong>: NEVER store raw card data (number, expiry, CVV) in memory or database. Implement payment tokenization using Stripe, Square, or Adyen. Only store token and last 4 digits. This is a PCI-DSS compliance violation.
+        <br><small>Files: src/premium.ts</small>
       </li>
     
       <li class="rec-critical">
         <span class="priority">[CRITICAL]</span>
-        <strong>Testing</strong>: Add tests for code quality analyzer execution and analysis of various code patterns and security issues
-        <br><small>Files: src/agents/code-quality-analyzer.ts</small>
+        <strong>Security - Card Validation</strong>: Replace custom card validation with industry-standard library that implements Luhn algorithm, validates card type, and handles expiry date parsing correctly. Current implementation is easily bypassed and contains Y2K bug.
+        <br><small>Files: src/premium.ts</small>
       </li>
     
       <li class="rec-critical">
         <span class="priority">[CRITICAL]</span>
-        <strong>Testing</strong>: Validate test file discovery logic across different test frameworks and naming conventions
-        <br><small>Files: src/agents/test-coverage-analyzer.ts</small>
+        <strong>Security - Input Validation</strong>: Add validation for all function parameters (userId, tier, payment) before processing. Implement format validation for userId and reject invalid tiers. No validation currently exists.
+        <br><small>Files: src/premium.ts</small>
       </li>
     
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>GitHub Integration</strong>: Implement GitHub API client initialization and PR data fetching with proper error handling
-        <br><small>Files: src/orchestrator.ts</small>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - JSON Parsing</strong>: Wrap all JSON.parse calls in try-catch blocks or use safe parsing utility to prevent DoS attacks from malformed JSON in database. Currently unhandled exceptions can crash application.
+        <br><small>Files: src/premium.ts</small>
       </li>
     
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>Security</strong>: Add input validation and sanitization for file paths and content to prevent prompt injection vulnerabilities
-        <br><small>Files: src/agents/code-quality-analyzer.ts</small>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security - Authentication & Authorization</strong>: Add authentication check to verify user identity and authorization to modify their own subscription. Currently any authenticated user could upgrade any other user's subscription.
+        <br><small>Files: src/premium.ts</small>
       </li>
     </ul>
 
   <footer>
-    Generated at 2026-11-23T00:00:00Z • Duration: 5000ms
+    Generated at 2026-11-23T00:00:00Z • Duration: 45000ms
   </footer>
 </body>
 </html>
