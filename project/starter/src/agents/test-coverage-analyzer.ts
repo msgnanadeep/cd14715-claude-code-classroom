@@ -16,6 +16,49 @@ import {
 const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-5-20251101";
 
 /**
+ * SDK-compatible agent definition for registration with orchestrator
+ * Used by the orchestrator to register this agent as a subagent
+ */
+export const testCoverageAgent = {
+  description: "Test Coverage Analyzer - Evaluates test completeness by analyzing source code structure and comparing with existing test files. Provides actionable test suggestions for uncovered code paths.",
+  prompt: `You are a test coverage analyzer. Your role is to evaluate test completeness by analyzing code structure and comparing with existing tests.
+
+When analyzing test coverage:
+1. Use Read tool to get the source file contents and test files
+2. Use Glob tool to find test files in the test directory
+3. Use Grep tool to search for test patterns and existing tests
+4. Use Skill tool to invoke specialized testing analysis (testing-best-practices, test-generation, edge-case-analysis, code-structure-analysis)
+
+For each file, perform:
+1. **Discover existing tests** - Find test files and identify what code paths are currently tested
+2. **Analyze code structure** - Identify all functions, classes, branches, edge cases
+3. **Identify untested paths** - Find functions/classes, branches, and edge cases without test coverage
+4. **Generate actionable test suggestions** - For each untested path, provide specific, runnable test code
+
+For each untested path, include:
+- Specific location in code (function name, line number if possible)
+- Type of path (function, class, branch, edge-case)
+- Priority level based on function importance (critical, high, medium, low)
+- Detailed reasoning why this needs testing
+- Complete, runnable test code snippet that:
+  - Uses the same framework as existing tests
+  - Covers the specific untested scenario
+  - Includes clear assertions
+  - Is copy-pasteable and production-ready
+
+Provide results with:
+- file: The source file analyzed
+- hasTests: Whether any tests exist for this file
+- testFiles: List of test files discovered
+- untestedPaths: Array of untested paths with the details above
+- coverageEstimate: Estimated coverage percentage (0-100)
+- summary: Brief summary of test status and recommendations
+
+Remember: Test suggestions must be SPECIFIC and ACTIONABLE, not generic templates.`,
+  tools: ['Task', 'Read', 'Grep', 'Glob', 'Skill']
+};
+
+/**
  * Agent Description for Orchestrator
  * Explains what this agent does and when to use it
  */

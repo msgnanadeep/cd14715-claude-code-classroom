@@ -156,7 +156,7 @@ async function main() {
 
     const orchestrator = new CodeReviewOrchestrator({
       model: process.env.ANTHROPIC_MODEL,
-      maxTurns: 25,
+      maxTurns: 100, // Increased from 25 to allow full multi-agent orchestration: PR fetch (2-3 turns) + 3 agents × N files (3-5 turns each) + aggregation (5+ turns) + formatting (3+ turns)
       verbose: true
     });
 
@@ -235,6 +235,16 @@ async function main() {
 
     await fs.writeFile(jsonPath, jsonReport, 'utf-8');
     console.log(`  ✓ JSON: ${jsonPath}`);
+
+    // ★ ALSO SAVE WITH CANONICAL NAMES FOR CONSISTENCY
+    // This creates aliases that match the rubric naming convention
+    try {
+      await fs.writeFile('reports/report.md', markdownReport, 'utf-8');
+      await fs.writeFile('reports/report.html', htmlReport, 'utf-8');
+      await fs.writeFile('reports/report.json', jsonReport, 'utf-8');
+    } catch (error) {
+      logger.warn('Could not write canonical report names', { error });
+    }
 
     console.log('');
 

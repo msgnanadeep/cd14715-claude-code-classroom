@@ -1,0 +1,33 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 1
+  },
+  "fileReviews": [],
+  "summary": {
+    "totalFiles": 0,
+    "overallScore": 0,
+    "criticalIssues": 0,
+    "highPriorityTests": 0,
+    "refactoringOpportunities": 0
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "infrastructure",
+      "description": "Cannot complete PR review due to GitHub API authentication failure. The code-quality-analyzer, test-coverage-analyzer, and refactoring-suggester agents could not be invoked because PR metadata and file information could not be retrieved. GitHub MCP tools returned authentication errors ('Bad credentials') and permission errors. This prevents analysis of modified files and generation of code quality, test coverage, and refactoring recommendations.",
+      "files": []
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-23T00:00:00Z",
+    "duration": 0,
+    "agentVersions": {
+      "orchestrator": "1.0",
+      "code-quality-analyzer": "unavailable",
+      "test-coverage-analyzer": "unavailable",
+      "refactoring-suggester": "unavailable"
+    }
+  }
+}

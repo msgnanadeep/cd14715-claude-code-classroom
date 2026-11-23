@@ -1,5 +1,7 @@
 /**
- * Subagent Exports
+ * Agent Definitions Module
+ * Exports SDK-compatible AgentDefinition structures for all subagents
+ * Also re-exports agent execution functions for direct use
  *
  * Central export hub for all code review agents used by the orchestrator.
  * Uses ES module syntax with .js extensions for compatibility with Node.js ESM.
@@ -11,18 +13,59 @@
  *
  * Usage in orchestrator:
  * ```
- * import { analyzeCodeQuality, analyzeTestCoverage, suggestRefactorings } from './agents/index.js';
+ * import {
+ *   codeQualityAgent,
+ *   testCoverageAgent,
+ *   refactoringAgent,
+ *   analyzeCodeQuality,
+ *   analyzeTestCoverage,
+ *   suggestRefactorings
+ * } from './agents/index.js';
  *
+ * // Use agent definitions for registration
+ * agents: {
+ *   'code-quality-analyzer': codeQualityAgent,
+ *   'test-coverage-analyzer': testCoverageAgent,
+ *   'refactoring-suggester': refactoringAgent,
+ * }
+ *
+ * // Or use execution functions directly
  * const qualityResult = await analyzeCodeQuality(filePath);
  * const coverageResult = await analyzeTestCoverage(filePath);
  * const refactoringResult = await suggestRefactorings(filePath);
  * ```
  */
 
+/**
+ * SDK-compatible agent definition structure
+ * Used by the orchestrator to register subagents
+ */
+export interface AgentDefinition {
+  /**
+   * Clear description of what the agent does
+   * Helps the orchestrator understand when to use this agent
+   */
+  description: string;
+
+  /**
+   * Detailed system prompt for the agent
+   * Guides the agent's behavior and analysis approach
+   */
+  prompt: string;
+
+  /**
+   * Array of tools this agent is allowed to use
+   * Should include 'Task' for agent-to-agent communication
+   * and specialized tools like Read, Grep, Glob, Skill
+   */
+  tools: string[];
+}
+
 // ============================================================================
 // Code Quality Analyzer Agent
 // ============================================================================
 export {
+  codeQualityAgent,
   analyzeCodeQuality,
   AGENT_DESCRIPTION as CodeQualityDescription,
   type AgentTrace as CodeQualityTrace,
@@ -32,6 +75,7 @@ export {
 // Test Coverage Analyzer Agent
 // ============================================================================
 export {
+  testCoverageAgent,
   analyzeTestCoverage,
   analyzeCoverage,
   analyzeCoverageMultiple,
@@ -43,6 +87,7 @@ export {
 // Refactoring Suggester Agent
 // ============================================================================
 export {
+  refactoringAgent,
   suggestRefactorings,
   refactor,
   filterByType,

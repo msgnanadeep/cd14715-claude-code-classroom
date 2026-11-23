@@ -47,11 +47,11 @@
   
   <div class="summary">
     <div class="metric">
-      <div class="metric-value">88</div>
+      <div class="metric-value">0</div>
       <div class="metric-label">Overall Score</div>
     </div>
     <div class="metric">
-      <div class="metric-value">1</div>
+      <div class="metric-value">0</div>
       <div class="metric-label">Files Reviewed</div>
     </div>
     <div class="metric">
@@ -59,50 +59,26 @@
       <div class="metric-label">Critical Issues</div>
     </div>
     <div class="metric">
-      <div class="metric-value">9</div>
+      <div class="metric-value">0</div>
       <div class="metric-label">Tests Needed</div>
     </div>
     <div class="metric">
-      <div class="metric-value">7</div>
+      <div class="metric-value">0</div>
       <div class="metric-label">Refactorings</div>
     </div>
   </div>
 
   <h2>🎯 Top Recommendations</h2>
   <ul>
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>Testing</strong>: Create comprehensive test suite with 40+ test cases for fixtures/clean-code.ts. The file has zero test coverage and contains critical security-sensitive functions (email validation, XSS sanitization). Priority test areas: email validation (13 tests), input sanitization (11 tests), user creation workflow (12 tests), and ID generation (3 tests).
-        <br><small>Files: fixtures/clean-code.ts</small>
-      </li>
-    
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>Security</strong>: Improve email validation using RFC 5322 compliant validation or a well-tested library. Current regex allows invalid formats like 'a@b.c'. Consider using email-validator library or stronger regex pattern like `/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/`.
-        <br><small>Files: fixtures/clean-code.ts</small>
-      </li>
-    
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>Refactoring</strong>: Extract validation logic from createUser() into dedicated validateCreateUserInput() function. This improves separation of concerns, testability, and allows reuse of validation logic elsewhere.
-        <br><small>Files: fixtures/clean-code.ts</small>
-      </li>
-    
-      <li class="rec-high">
-        <span class="priority">[HIGH]</span>
-        <strong>Refactoring</strong>: Optimize sanitizeInput() function by replacing four sequential .replace() calls with a single regex pass using character map. This improves performance on high-volume input processing while maintaining readability.
-        <br><small>Files: fixtures/clean-code.ts</small>
-      </li>
-    
-      <li class="rec-medium">
-        <span class="priority">[MEDIUM]</span>
-        <strong>Security</strong>: Replace Math.random()-based ID generation with cryptographically secure approach. Consider using UUID library (v4) or crypto.randomBytes() to ensure IDs cannot be predicted, especially important if used for security/authorization.
-        <br><small>Files: fixtures/clean-code.ts</small>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>infrastructure</strong>: Cannot complete PR review due to GitHub API authentication failure. The code-quality-analyzer, test-coverage-analyzer, and refactoring-suggester agents could not be invoked because PR metadata and file information could not be retrieved. GitHub MCP tools returned authentication errors ('Bad credentials') and permission errors. This prevents analysis of modified files and generation of code quality, test coverage, and refactoring recommendations.
+        <br><small>Files: </small>
       </li>
     </ul>
 
   <footer>
-    Generated at 2026-11-23T10:30:45.000Z • Duration: 8745ms
+    Generated at 2026-11-23T00:00:00Z • Duration: 0ms
   </footer>
 </body>
 </html>

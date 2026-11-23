@@ -5,9 +5,9 @@ import { ORCHESTRATOR_PROMPT } from './prompts/orchestrator.prompt.js';
 import { logger } from './utils/logger.js';
 import { mcpServersConfig } from './config/mcp.config.js';
 import {
-  analyzeCodeQuality,
-  analyzeTestCoverage,
-  suggestRefactorings
+  codeQualityAgent,
+  testCoverageAgent,
+  refactoringAgent
 } from './agents/index.js';
 
 /**
@@ -124,11 +124,38 @@ Please fetch the PR data, invoke all subagents to analyze modified files in para
 
     if (this.verbose) {
       logger.info('Starting PR review', { owner, repo, prNumber });
+      logger.info('Orchestrator configuration', {
+        model: this.model,
+        maxTurns: this.maxTurns,
+        allowedTools: [
+          'Task',
+          'mcp__github__get_pull_request',
+          'mcp__github__get_pull_request_files',
+          'mcp__github__get_pull_request_diff',
+          'mcp__github__get_pull_request_commits'
+        ],
+        registeredSubagents: [
+          'code-quality-analyzer',
+          'test-coverage-analyzer',
+          'refactoring-suggester'
+        ]
+      });
     }
 
     try {
       let reviewReport: ReviewReport | null = null;
       let lastError: Error | null = null;
+      let messageCount = 0;
+      let toolCallCount = 0;
+      let subagentInvocations: string[] = [];
+
+      if (this.verbose) {
+        logger.info('Launching orchestrator query with agent SDK', {
+          owner,
+          repo,
+          prNumber
+        });
+      }
 
       // Query the orchestrator agent using Claude Agent SDK
       for await (const message of query({
@@ -158,24 +185,12 @@ Please fetch the PR data, invoke all subagents to analyze modified files in para
           ],
 
           // ★ Agents: Register the three subagents for the Task tool
-          // These agent definitions enable the orchestrator to spawn subagents via Task tool
-          // Maps agent names to their definitions with description, prompt, and tools
+          // These agent definitions are imported from ./agents/index.js
+          // Each definition includes description, prompt, and tools array with Task enabled
           agents: {
-            'code-quality-analyzer': {
-              description: 'Code Quality Analyzer - Analyzes code for security vulnerabilities, performance issues, and maintainability concerns. Provides comprehensive quality scores and actionable recommendations.',
-              prompt: 'You are a code quality analyzer. Analyze the provided code and identify security vulnerabilities, performance issues, and maintainability concerns. Use Read to get file contents, Grep to search for patterns, Glob to find related files, and Skill to invoke specialized analysis.',
-              tools: ['Read', 'Grep', 'Glob', 'Skill']
-            },
-            'test-coverage-analyzer': {
-              description: 'Test Coverage Analyzer - Evaluates test completeness by analyzing source code structure and comparing with existing test files. Provides actionable test suggestions for uncovered code paths.',
-              prompt: 'You are a test coverage analyzer. Analyze the provided code and identify untested code paths. Suggest specific, actionable test cases. Use Read to analyze file structure, Grep to search for existing tests, Glob to find test files, and Skill to invoke testing analysis.',
-              tools: ['Read', 'Grep', 'Glob', 'Skill']
-            },
-            'refactoring-suggester': {
-              description: 'Refactoring Suggester - Identifies opportunities to improve code structure, design patterns, and overall code clarity. Provides concrete before/after examples for modernization and architectural improvements.',
-              prompt: 'You are a refactoring suggester. Analyze the provided code and identify refactoring opportunities. Provide before/after examples. Use Read to analyze code structure, Grep to search for anti-patterns, Glob to find related files, and Skill to invoke refactoring analysis.',
-              tools: ['Read', 'Grep', 'Glob', 'Skill']
-            }
+            'code-quality-analyzer': codeQualityAgent,
+            'test-coverage-analyzer': testCoverageAgent,
+            'refactoring-suggester': refactoringAgent
           },
 
           // Structured output configuration
@@ -197,9 +212,52 @@ Please fetch the PR data, invoke all subagents to analyze modified files in para
           maxTurns: this.maxTurns
         }
       })) {
+        messageCount++;
+
         // Log streaming progress if verbose
         if (this.verbose) {
-          logger.debug('Orchestrator message', { type: message.type });
+          logger.debug('Orchestrator message received', {
+            messageCount,
+            type: message.type,
+            subtype: 'subtype' in message ? message.subtype : undefined
+          });
+        }
+
+        // Track tool calls and subagent invocations
+        if (message.type === 'assistant') {
+          const content = message.message?.content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block.type === 'tool_use') {
+                toolCallCount++;
+                const toolName = block.name as string;
+
+                // Track subagent invocations via Task tool
+                if (toolName === 'Task') {
+                  const taskInput = block.input as Record<string, unknown>;
+                  const subagentName = taskInput.description as string;
+                  subagentInvocations.push(subagentName);
+
+                  if (this.verbose) {
+                    logger.info('Subagent invoked', {
+                      subagent: subagentName,
+                      invocationCount: subagentInvocations.length
+                    });
+                  }
+                }
+
+                // Track GitHub MCP tool calls
+                if (toolName.startsWith('mcp__github__')) {
+                  if (this.verbose) {
+                    logger.info('GitHub MCP tool called', {
+                      tool: toolName,
+                      input: block.input
+                    });
+                  }
+                }
+              }
+            }
+          }
         }
 
         // Check for final result with structured output
@@ -219,12 +277,36 @@ Please fetch the PR data, invoke all subagents to analyze modified files in para
               reviewReport = validationResult.data;
 
               if (this.verbose) {
+                logger.info('Orchestrator aggregation complete', {
+                  owner,
+                  repo,
+                  prNumber,
+                  messageCount,
+                  toolCallCount,
+                  subagentInvocations: subagentInvocations.length,
+                  subagentsInvoked: subagentInvocations,
+                  filesAnalyzed: reviewReport.fileReviews.map(fr => fr.file),
+                  fileCount: reviewReport.fileReviews.length
+                });
+
                 logger.info('Orchestrator completed successfully', {
                   owner,
                   repo,
                   prNumber,
                   totalFiles: reviewReport.fileReviews.length,
                   criticalIssues: reviewReport.summary.criticalIssues,
+                  codeQualityFindings: reviewReport.fileReviews.reduce(
+                    (sum, fr) => sum + (fr.codeQuality?.issues?.length ?? 0),
+                    0
+                  ),
+                  testCoverageFindings: reviewReport.fileReviews.reduce(
+                    (sum, fr) => sum + (fr.testCoverage?.untestedPaths?.length ?? 0),
+                    0
+                  ),
+                  refactoringOpportunities: reviewReport.fileReviews.reduce(
+                    (sum, fr) => sum + (fr.refactorings?.suggestions?.length ?? 0),
+                    0
+                  ),
                   duration: Date.now() - startTime
                 });
               }

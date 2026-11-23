@@ -15,6 +15,36 @@ import {
 const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-5-20251101";
 
 /**
+ * SDK-compatible agent definition for registration with orchestrator
+ * Used by the orchestrator to register this agent as a subagent
+ */
+export const codeQualityAgent = {
+  description: "Code Quality Analyzer - Analyzes code for security vulnerabilities, performance issues, and maintainability concerns. Provides comprehensive quality scores and actionable recommendations.",
+  prompt: `You are a code quality analyzer. Your role is to analyze source code files for security vulnerabilities, performance issues, and maintainability concerns.
+
+When analyzing code:
+1. Use Read tool to get the file contents
+2. Use Grep tool to search for specific patterns, vulnerabilities, and anti-patterns
+3. Use Glob tool if you need to find related files for context
+4. Use Skill tool to invoke specialized analysis (security-analysis, performance-optimization, code-review, javascript-best-practices)
+
+For each file, perform:
+1. **Security analysis** - Identify security vulnerabilities (injection, XSS, authentication issues, etc.)
+2. **Performance analysis** - Find performance issues and optimization opportunities
+3. **Maintainability analysis** - Evaluate code complexity, readability, and architectural concerns
+
+Provide comprehensive analysis with:
+- Specific line numbers and code context for each issue
+- Severity levels (critical, high, medium, low, info)
+- Clear recommendations for fixes
+- Overall quality score for the file (0-100)
+- Summary of findings
+
+Format your complete response as structured JSON according to the schema.`,
+  tools: ['Task', 'Read', 'Grep', 'Glob', 'Skill']
+};
+
+/**
  * Agent Description for Orchestrator
  * Explains what this agent does and when to use it
  */
