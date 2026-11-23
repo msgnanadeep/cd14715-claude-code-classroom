@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #f8f9fa;
+      color: #212529;
+    }
+    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 12px; }
+    .summary {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 24px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+    }
+    .metric { text-align: center; }
+    .metric-value { font-size: 2em; font-weight: bold; color: #3498db; }
+    .metric-label { color: #6c757d; font-size: 0.9em; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 12px; margin: 8px 0; border-radius: 4px; background: white; }
+    .rec-critical { border-left: 4px solid #e74c3c; }
+    .rec-high { border-left: 4px solid #f39c12; }
+    .rec-medium { border-left: 4px solid #3498db; }
+    .rec-low { border-left: 4px solid #27ae60; }
+    .priority { font-weight: bold; margin-right: 8px; }
+    .rec-critical .priority { color: #e74c3c; }
+    .rec-high .priority { color: #f39c12; }
+    .rec-medium .priority { color: #3498db; }
+    .rec-low .priority { color: #27ae60; }
+    footer { text-align: center; color: #6c757d; margin-top: 32px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Code Review Report</h1>
+  
+  <div class="summary">
+    <div class="metric">
+      <div class="metric-value">76</div>
+      <div class="metric-label">Overall Score</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">6</div>
+      <div class="metric-label">Files Reviewed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">2</div>
+      <div class="metric-label">Critical Issues</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">32</div>
+      <div class="metric-label">Tests Needed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">10</div>
+      <div class="metric-label">Refactorings</div>
+    </div>
+  </div>
+
+  <h2>🎯 Top Recommendations</h2>
+  <ul>
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Testing</strong>: Implement comprehensive test suite for CodeReviewOrchestrator and main.ts entry point. These are the most critical files with zero test coverage. Tests needed for orchestration flow, schema validation, error handling, and authentication validation. Recommend targeting 80%+ coverage.
+        <br><small>Files: tests/orchestrator.test.ts, src/orchestrator.ts, src/main.ts</small>
+      </li>
+    
+      <li class="rec-critical">
+        <span class="priority">[CRITICAL]</span>
+        <strong>Security</strong>: Remove logging of API key substrings in main.ts (lines 103, 121). Never log any part of credentials - use logger.info('✓ Authenticated') instead. This is a security vulnerability that could expose keys in logs/dashboards.
+        <br><small>Files: src/main.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Testing</strong>: Add test coverage for all subagent files (code-quality-analyzer.ts, test-coverage-analyzer.ts, refactoring-suggester.ts). Each agent needs tests for successful analysis, skill invocation tracking, and error handling when output is missing. Recommend 10+ tests per agent.
+        <br><small>Files: src/agents/code-quality-analyzer.ts, src/agents/test-coverage-analyzer.ts, src/agents/refactoring-suggester.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Testing</strong>: Implement validation tests for Zod schemas in src/types/analysis-results.ts. These schemas are critical for data integrity - test that valid data passes, invalid data fails, enums are enforced, and score ranges (0-100) are validated.
+        <br><small>Files: src/types/analysis-results.ts</small>
+      </li>
+    
+      <li class="rec-high">
+        <span class="priority">[HIGH]</span>
+        <strong>Testing</strong>: Add unit tests for error handling utilities (src/utils/error-handler.ts). Critical to test withRetry exponential backoff timing, withTimeout enforcement, and ReviewError thrown with correct error codes.
+        <br><small>Files: src/utils/error-handler.ts</small>
+      </li>
+    </ul>
+
+  <footer>
+    Generated at 2026-11-23T00:00:00Z • Duration: 45000ms
+  </footer>
+</body>
+</html>

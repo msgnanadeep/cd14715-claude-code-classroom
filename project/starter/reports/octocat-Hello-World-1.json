@@ -1,0 +1,33 @@
+{
+  "pullRequest": {
+    "owner": "octocat",
+    "repo": "Hello-World",
+    "number": 1
+  },
+  "fileReviews": [],
+  "summary": {
+    "totalFiles": 0,
+    "overallScore": 0,
+    "criticalIssues": 0,
+    "highPriorityTests": 0,
+    "refactoringOpportunities": 0
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "access",
+      "description": "Unable to fetch pull request data. GitHub CLI authentication required or file paths must be provided manually. Cannot proceed with code analysis without access to modified files.",
+      "files": []
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-23T00:00:00Z",
+    "duration": 0,
+    "agentVersions": {
+      "orchestrator": "1.0",
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}

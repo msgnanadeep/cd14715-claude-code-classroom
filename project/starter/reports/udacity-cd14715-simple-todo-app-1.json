@@ -1,0 +1,628 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 1
+  },
+  "fileReviews": [
+    {
+      "file": "src/orchestrator.ts",
+      "codeQuality": {
+        "file": "src/orchestrator.ts",
+        "issues": [
+          {
+            "line": 47,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Default model hardcoded in constructor - should validate against supported models list to prevent silent failures with unsupported model names",
+            "suggestion": "Create a constant SUPPORTED_MODELS array and validate model parameter against it, throwing informative error for unsupported models"
+          },
+          {
+            "line": 128,
+            "severity": "medium",
+            "category": "maintainability",
+            "description": "Limited error context in orchestrator error handling - when structured_output fails validation, error message truncates output to 500 chars which may hide important schema mismatches",
+            "suggestion": "Store full output in a separate debug field or log to debug logger; keep user-facing message concise but log full output for troubleshooting"
+          },
+          {
+            "line": 171,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "maxTurns hardcoded to 25 without documented reasoning for this specific number",
+            "suggestion": "Add inline comment explaining why 25 turns is sufficient: '~25 turns: Fetch PR (2-3), Invoke 3 subagents (3+), Aggregate (5+), Generate recommendations (3+), Format (2+), Retries buffer (5+)'"
+          },
+          {
+            "line": 186,
+            "severity": "low",
+            "category": "style",
+            "description": "Inconsistent error logging - uses logger.error with flattened validation errors but formatError utility exists but isn't used consistently",
+            "suggestion": "Use formatError(validationResult.error) for consistency with error-handler.ts patterns"
+          }
+        ],
+        "overallScore": 82,
+        "summary": "The orchestrator implementation is well-structured with solid async/await patterns and comprehensive error handling. The main concern is insufficient context in error messages when schema validation fails, which could make debugging difficult. Model validation and error message improvements would strengthen robustness."
+      },
+      "testCoverage": {
+        "file": "src/orchestrator.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "reviewPullRequest() - success path with valid structured output",
+            "priority": "critical",
+            "reasoning": "Core functionality - must verify that valid orchestrator output is correctly parsed, validated, and returned. Schema validation is critical for data integrity.",
+            "suggestedTest": "it('should return valid ReviewReport for successful orchestration', async () => {\n  const orchestrator = new CodeReviewOrchestrator();\n  const mockReport = { pullRequest: { owner: 'test', repo: 'repo', number: 1 }, fileReviews: [], summary: { totalFiles: 0, overallScore: 85, criticalIssues: 0, highPriorityTests: 0, refactoringOpportunities: 0 }, recommendations: [], metadata: { analyzedAt: new Date().toISOString(), duration: 1000, agentVersions: { orchestrator: '1.0' } } };\n  vi.spyOn(orchestrator, 'query').mockReturnValue(AsyncGenerator with structured_output);\n  const result = await orchestrator.reviewPullRequest('owner', 'repo', 1);\n  expect(result).toMatchObject(mockReport);\n  expect(result.summary.totalFiles).toBe(0);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "reviewPullRequest() - structured_output validation failure path (line 187-214)",
+            "priority": "critical",
+            "reasoning": "Error path that handles schema validation failures must be tested to ensure meaningful error messages and proper error propagation",
+            "suggestedTest": "it('should throw ReviewError when output validation fails', async () => {\n  const orchestrator = new CodeReviewOrchestrator();\n  const invalidOutput = { pullRequest: { owner: 'test', repo: 'repo' } }; // missing 'number'\n  vi.spyOn(orchestrator, 'query').mockReturnValue(AsyncGenerator with invalid structured_output);\n  await expect(orchestrator.reviewPullRequest('o', 'r', 1)).rejects.toThrow('Review report validation failed');\n});"
+          },
+          {
+            "type": "branch",
+            "location": "reviewPullRequest() - error case without structured_output (line 215-225)",
+            "priority": "high",
+            "reasoning": "Handles case where query completes but doesn't return structured_output - should verify error message extraction and logging",
+            "suggestedTest": "it('should handle orchestrator error without structured_output', async () => {\n  const orchestrator = new CodeReviewOrchestrator();\n  const errorMsg = 'GitHub API rate limited';\n  vi.spyOn(orchestrator, 'query').mockReturnValue(AsyncGenerator with result type message having error_message);\n  await expect(orchestrator.reviewPullRequest('o', 'r', 1)).rejects.toThrow(`Orchestrator failed: ${errorMsg}`);\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "constructor - verbose logging with custom options",
+            "priority": "high",
+            "reasoning": "Verbose flag controls logging - should verify that logging is properly enabled/disabled based on verbose option",
+            "suggestedTest": "it('should log info messages when verbose=true', () => {\n  const loggerSpy = vi.spyOn(logger, 'info');\n  new CodeReviewOrchestrator({ verbose: true });\n  expect(loggerSpy).toHaveBeenCalledWith('CodeReviewOrchestrator initialized', expect.any(Object));\n});\n\nit('should not log when verbose=false', () => {\n  const loggerSpy = vi.spyOn(logger, 'info');\n  new CodeReviewOrchestrator({ verbose: false });\n  expect(loggerSpy).not.toHaveBeenCalled();\n});"
+          }
+        ],
+        "coverageEstimate": 15,
+        "summary": "No unit tests exist for the orchestrator. This is critical infrastructure with complex async coordination logic, error handling, and schema validation. The test suite is completely empty with only TODOs. Priority should be given to testing the core reviewPullRequest() function's success and error paths, plus validation of structured output handling."
+      },
+      "refactorings": {
+        "file": "src/orchestrator.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "Lines 128-227 - Query iteration and result extraction logic",
+            "impact": "medium",
+            "description": "The large for-await loop mixing message type checking, logging, and result extraction is complex. Extracting this into a dedicated function would improve readability and testability.",
+            "before": "for await (const message of query({ ... })) {\n  if (this.verbose) {\n    logger.debug('Orchestrator message', { type: message.type });\n  }\n  if (message.type === 'result') {\n    if ('structured_output' in message && message.structured_output) {\n      const validationResult = ReviewReportSchema.safeParse(\n        message.structured_output\n      );\n      if (validationResult.success) {\n        reviewReport = validationResult.data;\n        ...\n      } else {\n        lastError = new Error(...);\n        ...\n      }\n    } else {\n      lastError = new Error(...);\n      ...\n    }\n  }\n}",
+            "after": "for await (const message of query({ ... })) {\n  if (this.verbose) {\n    logger.debug('Orchestrator message', { type: message.type });\n  }\n  if (message.type === 'result') {\n    reviewReport = await this.processOrchestratorResult(\n      message,\n      startTime\n    );\n    if (!reviewReport && !lastError) {\n      lastError = new Error('No result from orchestrator');\n    }\n  }\n}\n\nprivate processOrchestratorResult(\n  message: any,\n  startTime: number\n): ReviewReport | null {\n  if ('structured_output' in message && message.structured_output) {\n    const validationResult = ReviewReportSchema.safeParse(\n      message.structured_output\n    );\n    if (validationResult.success) {\n      if (this.verbose) {\n        logger.info('Orchestrator completed successfully', { ... });\n      }\n      return validationResult.data;\n    } else {\n      lastError = new Error(...);\n      return null;\n    }\n  } else {\n    lastError = new Error(...);\n    return null;\n  }\n}",
+            "benefits": "Reduces function complexity from 40+ lines to 20 lines in main logic. Extracted function is single-responsibility (validate result). Easier to unit test. Improves maintainability by separating concerns."
+          },
+          {
+            "type": "modernize",
+            "location": "Lines 10-25 - Interface definition for OrchestratorOptions",
+            "impact": "low",
+            "description": "Using plain interface when Zod schema would provide runtime validation of options, similar to report-types.ts pattern",
+            "before": "export interface OrchestratorOptions {\n  model?: string;\n  maxTurns?: number;\n  verbose?: boolean;\n}",
+            "after": "export const OrchestratorOptionsSchema = z.object({\n  model: z.string().optional(),\n  maxTurns: z.number().int().min(1).max(100).optional(),\n  verbose: z.boolean().optional()\n});\n\nexport type OrchestratorOptions = z.infer<typeof OrchestratorOptionsSchema>;\n\n// In constructor:\nconst validatedOptions = OrchestratorOptionsSchema.parse(options);",
+            "benefits": "Runtime validation catches invalid options (e.g., maxTurns: -1 or 'abc'). Type safety + validation. Consistent with schema-driven approach used elsewhere in codebase. Better error messages."
+          },
+          {
+            "type": "simplify",
+            "location": "Lines 230-237 - Final result checking logic",
+            "impact": "low",
+            "description": "Multiple condition checks for final result can be simplified with early return pattern",
+            "before": "if (reviewReport) {\n  return reviewReport;\n} else if (lastError) {\n  throw lastError;\n} else {\n  throw new Error(\n    'Orchestrator completed but produced no structured output'\n  );\n}",
+            "after": "if (reviewReport) {\n  return reviewReport;\n}\n\nif (lastError) {\n  throw lastError;\n}\n\nthrow new Error(\n  'Orchestrator completed but produced no structured output'\n);",
+            "benefits": "Removes confusing else-if chain. Using early returns makes the logic clearer and more idiomatic. Easier to read the success path first, then error handling."
+          }
+        ],
+        "summary": "Three refactoring opportunities identified: Extract complex query processing logic into dedicated method (medium impact), modernize options validation using Zod schema (low impact, consistency improvement), and simplify final result checking with early returns (low impact, clarity). The largest win is extracting result processing for testability and readability."
+      }
+    },
+    {
+      "file": "src/main.ts",
+      "codeQuality": {
+        "file": "src/main.ts",
+        "issues": [
+          {
+            "line": 103,
+            "severity": "medium",
+            "category": "security",
+            "description": "API key is logged with substring visible in output - while substring is small, logging any part of credentials is poor practice that could leak in logs/dashboards",
+            "suggestion": "Use logger.info('✓ Using Anthropic API authentication') without logging any key substring. Sensitive data should never be logged."
+          },
+          {
+            "line": 121,
+            "severity": "medium",
+            "category": "security",
+            "description": "AWS access key displayed with substring in logs - same issue as above, any part of credentials should not be logged",
+            "suggestion": "Remove substring logging of AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. Only log that they are configured."
+          },
+          {
+            "line": 222,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "Timestamp generation using ISO string replace for filesystem path - regex replaces colons/periods which could be fragile if ISO format changes",
+            "suggestion": "Use simpler approach: const timestamp = new Date().toISOString().split('T')[0] or just use Date.now().toString() for millisecond precision"
+          },
+          {
+            "line": 341,
+            "severity": "low",
+            "category": "maintainability",
+            "description": "Error troubleshooting messages hardcoded in switch statement - if error codes change, messages can become out of sync",
+            "suggestion": "Create ErrorCodeMessages map object at module level: const errorGuides = { [ErrorCodes.AGENT_TIMEOUT]: '...' } for easier maintenance"
+          }
+        ],
+        "overallScore": 78,
+        "summary": "The main.ts file has comprehensive validation and excellent user-facing error messages, which is commendable. However, security issues around logging API key substrings need immediate attention. The error handling switches and timestamp generation could be refactored for maintainability. Overall good structure with room for security hardening."
+      },
+      "testCoverage": {
+        "file": "src/main.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "main() - full success path with valid orchestration and report generation",
+            "priority": "critical",
+            "reasoning": "Main entry point must be thoroughly tested for the happy path - validates arguments, checks auth, creates orchestrator, runs review, generates reports. End-to-end flow.",
+            "suggestedTest": "it('should successfully review PR and generate reports', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', '123'];\n  process.env.ANTHROPIC_API_KEY = 'test-key';\n  process.env.ANTHROPIC_MODEL = 'claude-opus-4-5-20251101';\n  \n  const mockReport = { ... };\n  vi.spyOn(CodeReviewOrchestrator.prototype, 'reviewPullRequest').mockResolvedValue(mockReport);\n  vi.spyOn(fs, 'mkdir').mockResolvedValue(undefined);\n  vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);\n  \n  await main();\n  \n  expect(fs.mkdir).toHaveBeenCalledWith('reports', { recursive: true });\n  expect(fs.writeFile).toHaveBeenCalledTimes(3);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "Argument validation (lines 39-55) - missing arguments error path",
+            "priority": "high",
+            "reasoning": "Critical path that validates required arguments and exits with error if missing. Must verify exact error message output.",
+            "suggestedTest": "it('should exit with error when arguments missing', async () => {\n  process.argv = ['node', 'script'];\n  const consoleErrorSpy = vi.spyOn(console, 'error');\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Missing required arguments'));\n  expect(exitSpy).toHaveBeenCalledWith(1);\n});\n\nit('should exit with error when PR number invalid', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', 'invalid'];\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(exitSpy).toHaveBeenCalledWith(1);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "Authentication validation (lines 76-125) - multiple auth config paths",
+            "priority": "high",
+            "reasoning": "Three distinct paths: no auth, Anthropic only, AWS only. Each must be validated for proper error handling and configuration checking.",
+            "suggestedTest": "it('should error when no auth configured', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', '1'];\n  delete process.env.ANTHROPIC_API_KEY;\n  delete process.env.AWS_ACCESS_KEY_ID;\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(exitSpy).toHaveBeenCalledWith(1);\n});\n\nit('should error when AWS auth missing AWS_REGION', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', '1'];\n  process.env.AWS_ACCESS_KEY_ID = 'test';\n  process.env.AWS_SECRET_ACCESS_KEY = 'test';\n  delete process.env.AWS_REGION;\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(exitSpy).toHaveBeenCalledWith(1);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "Model configuration validation (lines 130-150)",
+            "priority": "high",
+            "reasoning": "Validates ANTHROPIC_MODEL environment variable is set, with helpful error messages showing valid models for Anthropic and AWS Bedrock",
+            "suggestedTest": "it('should error when ANTHROPIC_MODEL not set', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', '1'];\n  process.env.ANTHROPIC_API_KEY = 'test-key';\n  delete process.env.ANTHROPIC_MODEL;\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(exitSpy).toHaveBeenCalledWith(1);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "Report generation and saving (lines 200-237)",
+            "priority": "high",
+            "reasoning": "Generates three report formats (Markdown, HTML, JSON) and saves to disk. Must verify all files are created with correct content.",
+            "suggestedTest": "it('should generate and save all three report formats', async () => {\n  const mockReport = { ... };\n  const mockMdReport = '# Report';\n  const mockHtmlReport = '<!DOCTYPE html>';\n  const mockJsonReport = '{}';\n  \n  vi.spyOn(ReportGenerator.prototype, 'generateMarkdownReport').mockReturnValue(mockMdReport);\n  vi.spyOn(ReportGenerator.prototype, 'generateHTMLReport').mockReturnValue(mockHtmlReport);\n  vi.spyOn(ReportGenerator.prototype, 'generateJSONReport').mockReturnValue(mockJsonReport);\n  \n  const writeFileSpy = vi.spyOn(fs, 'writeFile').mockResolvedValue(undefined);\n  \n  // Run main...\n  \n  expect(writeFileSpy).toHaveBeenCalledWith(\n    expect.stringContaining('.md'),\n    mockMdReport,\n    'utf-8'\n  );\n  expect(writeFileSpy).toHaveBeenCalledWith(\n    expect.stringContaining('.html'),\n    mockHtmlReport,\n    'utf-8'\n  );\n  expect(writeFileSpy).toHaveBeenCalledWith(\n    expect.stringContaining('.json'),\n    mockJsonReport,\n    'utf-8'\n  );\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "Error handling for file permission issues (line 345-346)",
+            "priority": "medium",
+            "reasoning": "Handles EACCES errors (permission denied) with specific guidance, should verify this error path logs helpful message",
+            "suggestedTest": "it('should provide permission guidance for EACCES errors', async () => {\n  process.argv = ['node', 'script', 'owner', 'repo', '1'];\n  const error = new Error('EACCES: permission denied');\n  vi.spyOn(CodeReviewOrchestrator.prototype, 'reviewPullRequest').mockRejectedValue(error);\n  const consoleErrorSpy = vi.spyOn(console, 'error');\n  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});\n  \n  await main();\n  \n  expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Permission denied'));\n  expect(exitSpy).toHaveBeenCalledWith(1);\n});"
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "No tests exist for main.ts, the application entry point. This is critical infrastructure that handles all user-facing validation, error reporting, file I/O, and orchestration setup. The file has complex branching for authentication, validation, and error handling - all of which should be tested. Priority: implement comprehensive test suite covering success path, auth validation branches, argument validation, and error handling scenarios."
+      },
+      "refactorings": {
+        "file": "src/main.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "Lines 33-73 - Command line argument validation",
+            "impact": "medium",
+            "description": "Argument validation code is 40 lines of repetitive validation logic mixed with console output. Should be extracted to dedicated validation function.",
+            "before": "const [owner, repo, prStr] = process.argv.slice(2);\n\nif (!owner || !repo || !prStr) {\n  console.error('❌ Missing required arguments');\n  // ... 15 lines of error output\n  process.exit(1);\n}\n\nconst prNumber = parseInt(prStr, 10);\nif (isNaN(prNumber) || prNumber <= 0) {\n  console.error(`❌ Invalid PR number: \"${prStr}\"`);\n  // ... 10 lines of error output\n  process.exit(1);\n}",
+            "after": "const { owner, repo, prNumber } = validateArguments(process.argv.slice(2));\n\n// New extracted function:\nfunction validateArguments(args: string[]): { owner: string; repo: string; prNumber: number } {\n  const [owner, repo, prStr] = args;\n  \n  if (!owner || !repo || !prStr) {\n    console.error('❌ Missing required arguments');\n    console.error('Usage: npm run dev -- <owner> <repo> <pr-number>');\n    console.error('Example: npm run dev -- octocat Hello-World 1');\n    process.exit(1);\n  }\n  \n  const prNumber = parseInt(prStr, 10);\n  if (isNaN(prNumber) || prNumber <= 0) {\n    console.error(`❌ Invalid PR number: \"${prStr}\"`);\n    console.error('PR number must be a positive integer');\n    process.exit(1);\n  }\n  \n  return { owner, repo, prNumber };\n}",
+            "benefits": "Separates validation logic from main flow. Easier to test validation independently. main() becomes more readable. Reusable if validation needed elsewhere. Reduces main() from 345 lines to ~300 lines."
+          },
+          {
+            "type": "extract-function",
+            "location": "Lines 76-125 - Authentication validation",
+            "impact": "medium",
+            "description": "Authentication validation spans 50 lines with multiple nested conditions and console logging. Should be extracted for clarity and testability.",
+            "before": "const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;\nconst hasAwsAuth =\n  !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;\n\nif (!hasAnthropicKey && !hasAwsAuth) {\n  console.error('❌ No authentication configured');\n  // ... error help text\n  process.exit(1);\n}\n\nif (hasAnthropicKey) {\n  console.log('✓ Using Anthropic API authentication');\n  // ... logs key substring\n}\n\nif (hasAwsAuth) {\n  console.log('✓ Using AWS Bedrock authentication');\n  if (!process.env.AWS_REGION) {\n    console.error('❌ AWS_REGION not configured');\n    // ... error help\n    process.exit(1);\n  }\n}",
+            "after": "validateAuthentication();\n\nfunction validateAuthentication(): void {\n  const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;\n  const hasAwsAuth = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;\n  \n  if (!hasAnthropicKey && !hasAwsAuth) {\n    logAuthError();\n    process.exit(1);\n  }\n  \n  if (hasAnthropicKey) {\n    console.log('✓ Using Anthropic API authentication');\n  }\n  \n  if (hasAwsAuth) {\n    console.log('✓ Using AWS Bedrock authentication');\n    if (!process.env.AWS_REGION) {\n      logAwsRegionError();\n      process.exit(1);\n    }\n    console.log(`  Region: ${process.env.AWS_REGION}`);\n  }\n}",
+            "benefits": "Separates validation from main flow. Function name is self-documenting. Easier to test each auth scenario. Removes credential logging vulnerability to dedicated validation. Reduces nesting complexity."
+          },
+          {
+            "type": "simplify",
+            "location": "Lines 307-331 - Error code switch statement",
+            "impact": "low",
+            "description": "Error troubleshooting messages are hardcoded in switch statement, making them fragile and hard to maintain",
+            "before": "switch (error.code) {\n  case ErrorCodes.AGENT_TIMEOUT:\n    console.error('💡 Troubleshooting: Agent operation timed out');\n    console.error('  • Try increasing maxTurns in CodeReviewOrchestrator');\n    // ... more lines\n    break;\n  case ErrorCodes.RETRY_EXHAUSTED:\n    console.error('💡 Troubleshooting: All retry attempts failed');\n    // ... more lines\n    break;\n  // ... 15+ more lines for other codes\n}",
+            "after": "const errorGuides: Record<ErrorCode, string[]> = {\n  [ErrorCodes.AGENT_TIMEOUT]: [\n    'Agent operation timed out',\n    '  • Try increasing maxTurns in CodeReviewOrchestrator',\n    '  • Check API health and network connectivity',\n    '  • Large PRs may need longer timeouts'\n  ],\n  [ErrorCodes.RETRY_EXHAUSTED]: [\n    'All retry attempts failed',\n    '  • Check API credentials and rate limits',\n    '  • Verify GitHub token has proper permissions',\n    '  • Wait and retry later if rate limited'\n  ]\n  // ... other codes\n};\n\n// In error handler:\nif (error.code in errorGuides) {\n  console.error(`💡 Troubleshooting: ${errorGuides[error.code][0]}`);\n  errorGuides[error.code].slice(1).forEach(line => console.error(line));\n} else {\n  console.error('💡 Troubleshooting: Check error code and metadata above');\n}",
+            "benefits": "Data-driven approach makes messages easier to maintain and update. Scales better if more error codes added. Reduces switch statement complexity. Single source of truth for error guidance."
+          }
+        ],
+        "summary": "Three refactoring opportunities identified: Extract argument validation (medium impact), extract authentication validation (medium impact), and simplify error code switch statement with data-driven approach (low impact). The two extraction refactorings would reduce main() complexity significantly and improve testability."
+      }
+    },
+    {
+      "file": "src/types/analysis-results.ts",
+      "codeQuality": {
+        "file": "src/types/analysis-results.ts",
+        "issues": [
+          {
+            "line": 73,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "toJsonSchema function is duplicated in multiple type files (analysis-results.ts and report-types.ts)",
+            "suggestion": "Extract toJsonSchema to a shared utility file like src/utils/schema.ts and import in both files"
+          },
+          {
+            "line": 2,
+            "severity": "low",
+            "category": "style",
+            "description": "Missing JSDoc comment on toJsonSchema function explaining its purpose and $refStrategy parameter",
+            "suggestion": "Add documentation: /** Converts Zod schema to JSON Schema with inline $ref definitions for SDK compatibility */"
+          }
+        ],
+        "overallScore": 88,
+        "summary": "Well-structured schema definitions using Zod with proper runtime validation. The schemas are comprehensive, covering all required fields with appropriate type constraints. Code quality is high, with minor issues around code duplication and missing documentation."
+      },
+      "testCoverage": {
+        "file": "src/types/analysis-results.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "CodeQualityResultSchema validation of valid input",
+            "priority": "high",
+            "reasoning": "Schema defines structure for code quality analysis results. Must verify it correctly validates proper data and rejects invalid data.",
+            "suggestedTest": "it('should validate correct CodeQualityResult', () => {\n  const validData = {\n    file: 'src/test.ts',\n    issues: [\n      { line: 1, severity: 'critical', category: 'security', description: 'XSS vulnerability', suggestion: 'Use sanitization' }\n    ],\n    overallScore: 75,\n    summary: 'Found 1 critical issue'\n  };\n  expect(() => CodeQualityResultSchema.parse(validData)).not.toThrow();\n});\n\nit('should reject invalid severity', () => {\n  const invalidData = { ...validData, issues: [{ ...validData.issues[0], severity: 'invalid' }] };\n  expect(() => CodeQualityResultSchema.parse(invalidData)).toThrow();\n});\n\nit('should reject score outside 0-100 range', () => {\n  const invalidData = { ...validData, overallScore: 150 };\n  expect(() => CodeQualityResultSchema.parse(invalidData)).toThrow();\n});"
+          },
+          {
+            "type": "function",
+            "location": "TestCoverageResultSchema validation",
+            "priority": "high",
+            "reasoning": "Validates test coverage analysis structure including priority levels. Must verify enum constraints.",
+            "suggestedTest": "it('should validate TestCoverageResult with untestedPaths', () => {\n  const validData = {\n    file: 'src/test.ts',\n    hasTests: true,\n    testFiles: ['src/test.spec.ts'],\n    untestedPaths: [\n      { type: 'function', location: 'calculateTotal()', priority: 'high', reasoning: 'No test', suggestedTest: 'it(...)' }\n    ],\n    coverageEstimate: 65,\n    summary: 'Found untested function'\n  };\n  expect(() => TestCoverageResultSchema.parse(validData)).not.toThrow();\n});\n\nit('should reject invalid path type', () => {\n  const invalidData = { ...validData, untestedPaths: [{ ...validData.untestedPaths[0], type: 'invalid' }] };\n  expect(() => TestCoverageResultSchema.parse(invalidData)).toThrow();\n});"
+          },
+          {
+            "type": "function",
+            "location": "RefactoringSuggestionSchema validation",
+            "priority": "high",
+            "reasoning": "Validates refactoring suggestions with specific enum types. Must verify before/after code and impact levels.",
+            "suggestedTest": "it('should validate RefactoringSuggestion', () => {\n  const validData = {\n    file: 'src/test.ts',\n    suggestions: [\n      { type: 'extract-function', location: 'calculateTotal() line 20', impact: 'high', description: 'Too complex', before: 'function foo() { ... }', after: 'function foo() { ... }\\nfunction bar() { ... }', benefits: 'Better readability' }\n    ],\n    summary: 'Found 1 refactoring opportunity'\n  };\n  expect(() => RefactoringSuggestionSchema.parse(validData)).not.toThrow();\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "JSON Schema conversion with $refStrategy: 'root'",
+            "priority": "medium",
+            "reasoning": "toJsonSchema function uses specific $refStrategy parameter critical for SDK compatibility. Must verify schemas convert correctly.",
+            "suggestedTest": "it('should convert Zod schema to JSON Schema with inline refs', () => {\n  const jsonSchema = toJsonSchema(CodeQualityResultSchema);\n  expect(jsonSchema).toBeDefined();\n  expect(jsonSchema.type).toBe('object');\n  // Verify $refStrategy: 'root' means no $ref keys remain (all inlined)\n  const jsonStr = JSON.stringify(jsonSchema);\n  expect(jsonStr).not.toContain('\\\"$ref\\\"');\n});"
+          }
+        ],
+        "coverageEstimate": 20,
+        "summary": "No tests for schema validation. These Zod schemas are critical for data integrity - they validate all inputs from subagents. The schemas have specific constraints (severity enums, priority enums, score ranges 0-100) that need testing. Additionally, the JSON Schema conversion for SDK structured outputs needs validation to ensure proper inline $ref handling."
+      },
+      "refactorings": {
+        "file": "src/types/analysis-results.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "Lines 72-77 - toJsonSchema function duplicated in report-types.ts",
+            "impact": "low",
+            "description": "toJsonSchema utility function is defined identically in both analysis-results.ts and report-types.ts, violating DRY principle",
+            "before": "// In analysis-results.ts (lines 72-77):\ntype JsonSchema = Record<string, unknown>;\nconst toJsonSchema = (schema: z.ZodTypeAny): JsonSchema =>\n  (zodToJsonSchema as (s: unknown, options?: unknown) => unknown)(\n    schema,\n    { $refStrategy: 'root' }\n  ) as JsonSchema;\n\n// In report-types.ts (lines 50-55):\ntype JsonSchema = Record<string, unknown>;\nconst toJsonSchema = (schema: z.ZodTypeAny): JsonSchema =>\n  (zodToJsonSchema as (s: unknown, options?: unknown) => unknown)(\n    schema,\n    { $refStrategy: 'root' }\n  ) as JsonSchema;",
+            "after": "// New file: src/utils/schema.ts\nexport type JsonSchema = Record<string, unknown>;\n\n/**\n * Convert Zod schema to JSON Schema with inline $ref definitions\n * Uses $refStrategy: 'root' per SDK docs:\n * https://platform.claude.com/docs/en/agent-sdk/structured-outputs\n */\nexport function toJsonSchema(schema: z.ZodTypeAny): JsonSchema {\n  return (zodToJsonSchema as (s: unknown, options?: unknown) => unknown)(\n    schema,\n    { $refStrategy: 'root' }\n  ) as JsonSchema;\n}\n\n// In analysis-results.ts:\nimport { toJsonSchema, type JsonSchema } from '../utils/schema.js';\n\n// In report-types.ts:\nimport { toJsonSchema, type JsonSchema } from '../utils/schema.js';",
+            "benefits": "Eliminates code duplication. Single source of truth for schema conversion logic. If $refStrategy needs to change, only one place to update. Better maintainability. Easier to test schema conversion separately."
+          },
+          {
+            "type": "modernize",
+            "location": "Lines 10-28, 31-44, 47-65 - Zod schema definitions",
+            "impact": "low",
+            "description": "Schemas could use Zod's pipe and superRefine for more explicit constraint documentation",
+            "before": "export const CodeQualityResultSchema = z.object({\n  file: z.string(),\n  issues: z.array(z.object({\n    line: z.number(),\n    severity: z.enum(['critical', 'high', 'medium', 'low', 'info']),\n    category: z.enum([\n      'security',\n      'performance',\n      'maintainability',\n      'style',\n      'bug-risk',\n      'best-practice'\n    ]),\n    description: z.string(),\n    suggestion: z.string()\n  })),\n  overallScore: z.number().min(0).max(100),\n  summary: z.string()\n});",
+            "after": "// Define enums as constants for reuse\nconst SEVERITY_LEVELS = ['critical', 'high', 'medium', 'low', 'info'] as const;\nconst ISSUE_CATEGORIES = [\n  'security', 'performance', 'maintainability', 'style', 'bug-risk', 'best-practice'\n] as const;\n\nexport const CodeQualityIssueSchema = z.object({\n  line: z.number().int().min(1),\n  severity: z.enum(SEVERITY_LEVELS),\n  category: z.enum(ISSUE_CATEGORIES),\n  description: z.string().min(1),\n  suggestion: z.string().min(1)\n});\n\nexport const CodeQualityResultSchema = z.object({\n  file: z.string().min(1),\n  issues: z.array(CodeQualityIssueSchema),\n  overallScore: z.number().int().min(0).max(100),\n  summary: z.string().min(1)\n});",
+            "benefits": "Enum constants can be exported and reused elsewhere. Extracted schema makes nested structure clearer. Added .min(1) for string fields improves validation. Added .int() for number fields. More semantic meaning. Easier to test individual schema components."
+          }
+        ],
+        "summary": "Two refactoring opportunities: Extract duplicate toJsonSchema utility to shared module (low impact, improves DRY), and modernize schema definitions with extracted enums and sub-schemas (low impact, improves clarity and reusability). Second refactoring also adds better validation constraints."
+      }
+    },
+    {
+      "file": "src/agents/code-quality-analyzer.ts",
+      "codeQuality": {
+        "file": "src/agents/code-quality-analyzer.ts",
+        "issues": [
+          {
+            "line": 118,
+            "severity": "medium",
+            "category": "best-practice",
+            "description": "Skills are referenced as strings in allowedTools which is fragile - typo in skill name would cause silent failures",
+            "suggestion": "Create SKILL_NAMES constant object with skill names as properties to enable TypeScript checking and autocomplete"
+          },
+          {
+            "line": 177,
+            "severity": "low",
+            "category": "maintainability",
+            "description": "Error thrown with generic message when structured output fails - no context about what went wrong",
+            "suggestion": "Add context: throw new Error(`Failed to analyze ${filePath}: no structured output received from agent`)"
+          }
+        ],
+        "overallScore": 85,
+        "summary": "Well-structured agent implementation with clear separation of concerns. The async generator pattern for message creation is clean. Main issue is fragile skill string references. Overall demonstrates good understanding of Claude Agent SDK patterns."
+      },
+      "testCoverage": {
+        "file": "src/agents/code-quality-analyzer.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "analyzeCodeQuality() - success path with valid output",
+            "priority": "critical",
+            "reasoning": "Core agent function that must correctly invoke Claude with file path and return structured CodeQualityResult",
+            "suggestedTest": "it('should analyze code quality and return result', async () => {\n  const mockResult: CodeQualityResult = {\n    file: 'src/test.ts',\n    issues: [{ line: 1, severity: 'high', category: 'security', description: 'XSS risk', suggestion: 'Fix' }],\n    overallScore: 75,\n    summary: 'Found 1 high severity issue'\n  };\n  \n  vi.mocked(query).mockReturnValue(AsyncGenerator yielding result type with structured_output matching mockResult);\n  \n  const trace = await analyzeCodeQuality('src/test.ts', 'security issues');\n  \n  expect(trace.result).toEqual(mockResult);\n  expect(trace.skillsInvoked).toContain({ name: 'security-analysis', purpose: expect.any(String) });\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "Skill invocation tracking (lines 140-160)",
+            "priority": "high",
+            "reasoning": "Agent tracks which skills were invoked. Must verify skill tracking works for all four skills.",
+            "suggestedTest": "it('should track all four skill invocations', async () => {\n  const mockResult = { ... };\n  const mockMessages = [\n    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'javascript-best-practices', input: {} }] } },\n    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'security-analysis', input: {} }] } },\n    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'performance-optimization', input: {} }] } },\n    { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'code-review', input: {} }] } },\n    { type: 'result', structured_output: mockResult }\n  ];\n  \n  vi.mocked(query).mockReturnValue(AsyncGenerator from mockMessages);\n  \n  const trace = await analyzeCodeQuality('src/test.ts');\n  \n  expect(trace.skillsInvoked.length).toBe(4);\n  expect(trace.skillsInvoked.map(s => s.name)).toEqual([\n    'javascript-best-practices',\n    'security-analysis',\n    'performance-optimization',\n    'code-review'\n  ]);\n});"
+          },
+          {
+            "type": "branch",
+            "location": "analyzeCodeQuality() - missing structured output error",
+            "priority": "high",
+            "reasoning": "Must handle case where query completes but structured_output is never received",
+            "suggestedTest": "it('should throw error when no structured output received', async () => {\n  vi.mocked(query).mockReturnValue(AsyncGenerator yielding only assistant messages without result);\n  \n  await expect(analyzeCodeQuality('src/test.ts')).rejects.toThrow(\n    'Failed to analyze src/test.ts: no structured output received'\n  );\n});"
+          }
+        ],
+        "coverageEstimate": 15,
+        "summary": "No tests for code quality analyzer. As a core subagent, this needs tests for: successful analysis and result parsing, skill invocation tracking, error handling when output is missing. The agent is relatively simple but critical to overall system."
+      },
+      "refactorings": {
+        "file": "src/agents/code-quality-analyzer.ts",
+        "suggestions": [
+          {
+            "type": "simplify",
+            "location": "Lines 139-160 - Skill invocation tracking",
+            "impact": "low",
+            "description": "Skill tracking uses multiple if statements checking for each skill name substring. Could be simplified with object mapping.",
+            "before": "if (toolName.includes('javascript-best-practices')) {\n  trace.skillsInvoked.push({\n    name: 'javascript-best-practices',\n    purpose: 'Analyzing JavaScript/TypeScript best practices',\n  });\n} else if (toolName.includes('security-analysis')) {\n  trace.skillsInvoked.push({\n    name: 'security-analysis',\n    purpose: 'Detecting security vulnerabilities',\n  });\n} else if (toolName.includes('performance-optimization')) {\n  trace.skillsInvoked.push({\n    name: 'performance-optimization',\n    purpose: 'Identifying performance bottlenecks',\n  });\n} else if (toolName.includes('code-review')) {\n  trace.skillsInvoked.push({\n    name: 'code-review',\n    purpose: 'Evaluating code quality and maintainability',\n  });\n}",
+            "after": "const skillMap = {\n  'javascript-best-practices': 'Analyzing JavaScript/TypeScript best practices',\n  'security-analysis': 'Detecting security vulnerabilities',\n  'performance-optimization': 'Identifying performance bottlenecks',\n  'code-review': 'Evaluating code quality and maintainability'\n};\n\nfor (const [skillName, purpose] of Object.entries(skillMap)) {\n  if (toolName.includes(skillName)) {\n    trace.skillsInvoked.push({ name: skillName, purpose });\n    break;\n  }\n}",
+            "benefits": "Removes else-if chain complexity. Data-driven approach. Easier to add new skills. Skill purposes defined once, reusable. Less error-prone."
+          }
+        ],
+        "summary": "One refactoring identified: simplify skill tracking with mapping object instead of if-else chain (low impact). Overall code quality is good with clear patterns following SDK conventions."
+      }
+    },
+    {
+      "file": "tests/orchestrator.test.ts",
+      "codeQuality": {
+        "file": "tests/orchestrator.test.ts",
+        "issues": [
+          {
+            "line": 15,
+            "severity": "critical",
+            "category": "bug-risk",
+            "description": "Test file is completely empty with only describe blocks and TODO comments - no actual tests implemented",
+            "suggestion": "Implement all test cases marked with TODOs. These tests are critical for the core orchestrator functionality."
+          }
+        ],
+        "overallScore": 10,
+        "summary": "Test file is essentially a skeleton with no implemented tests. This represents a critical gap in test coverage for the orchestrator, which is the most complex component of the system. File structure is correct but content is missing."
+      },
+      "testCoverage": {
+        "file": "tests/orchestrator.test.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "class",
+            "location": "CodeReviewOrchestrator class - all methods",
+            "priority": "critical",
+            "reasoning": "The orchestrator is the main coordination engine. All public methods and both success and error paths need comprehensive testing.",
+            "suggestedTest": "See orchestrator.ts testCoverage section for detailed test suggestions. This file should contain at least 15-20 test cases covering initialization, configuration, PR review flow, schema validation, error handling, and subagent coordination."
+          }
+        ],
+        "coverageEstimate": 0,
+        "summary": "No tests implemented. The test file has proper Vitest structure but contains only empty describe blocks and TODO comments. This is a critical gap - the orchestrator coordinates all three subagents and needs comprehensive testing."
+      },
+      "refactorings": {
+        "file": "tests/orchestrator.test.ts",
+        "suggestions": [
+          {
+            "type": "extract-function",
+            "location": "Entire file - test helper utilities",
+            "impact": "medium",
+            "description": "Once tests are implemented, common mocking and helper functions should be extracted to test utilities",
+            "before": "describe('CodeReviewOrchestrator', () => {\n  describe('Configuration', () => {\n    it('should initialize with default options', () => {\n      // Mock setup would go here\n      // Create orchestrator\n      // Verify default values\n    });\n  });\n});",
+            "after": "// Create src/tests/helpers/orchestrator.test-utils.ts\nexport function createMockReviewReport(overrides?: Partial<ReviewReport>): ReviewReport {\n  return {\n    pullRequest: { owner: 'test', repo: 'repo', number: 1 },\n    fileReviews: [],\n    summary: { totalFiles: 0, overallScore: 85, criticalIssues: 0, highPriorityTests: 0, refactoringOpportunities: 0 },\n    recommendations: [],\n    metadata: { analyzedAt: new Date().toISOString(), duration: 1000, agentVersions: { orchestrator: '1.0' } },\n    ...overrides\n  };\n}\n\nexport function setupOrchestratorMocks() {\n  return {\n    queryMock: vi.mocked(query),\n    loggerMock: vi.spyOn(logger, 'info')\n  };\n}\n\n// In test file:\nimport { createMockReviewReport, setupOrchestratorMocks } from './helpers/orchestrator.test-utils';\n\ndescribe('CodeReviewOrchestrator', () => {\n  describe('Configuration', () => {\n    it('should initialize with default options', () => {\n      const { loggerMock } = setupOrchestratorMocks();\n      new CodeReviewOrchestrator();\n      expect(loggerMock).toHaveBeenCalled();\n    });\n  });\n});",
+            "benefits": "Reduces test file clutter. Reusable mock helpers. Single source of truth for test data. Easier to maintain and update mocks. Makes tests more readable and focused on what they're testing."
+          }
+        ],
+        "summary": "Main recommendation is to implement the TODO tests. File structure is good but needs content. After implementing tests, consider extracting common mock utilities to test-utils.ts file."
+      }
+    },
+    {
+      "file": "src/utils/error-handler.ts",
+      "codeQuality": {
+        "file": "src/utils/error-handler.ts",
+        "issues": [
+          {
+            "line": 108,
+            "severity": "low",
+            "category": "best-practice",
+            "description": "Error codes are defined as const object but ErrorCode type is derived from keyof - could use 'as const' for better type safety",
+            "suggestion": "Add 'as const' assertion: export const ErrorCodes = { ... } as const; to properly infer literal types"
+          }
+        ],
+        "overallScore": 92,
+        "summary": "Excellent error handling implementation with comprehensive documentation. The withRetry and withTimeout utilities are well-designed with exponential backoff and jitter. Code is production-ready with great inline comments explaining the implementation details."
+      },
+      "testCoverage": {
+        "file": "src/utils/error-handler.ts",
+        "hasTests": false,
+        "testFiles": [],
+        "untestedPaths": [
+          {
+            "type": "function",
+            "location": "withRetry() - successful execution on first attempt",
+            "priority": "high",
+            "reasoning": "withRetry is a utility used throughout the system. Must verify it returns result when function succeeds immediately.",
+            "suggestedTest": "it('should return result on first successful attempt', async () => {\n  const fn = vi.fn().mockResolvedValue('success');\n  const result = await withRetry(fn, 3, 100);\n  \n  expect(result).toBe('success');\n  expect(fn).toHaveBeenCalledTimes(1);\n});"
+          },
+          {
+            "type": "function",
+            "location": "withRetry() - exponential backoff calculation",
+            "priority": "high",
+            "reasoning": "Critical that backoff follows correct exponential formula: baseDelay × 2^(attempt-1). Must test delay timing.",
+            "suggestedTest": "it('should use exponential backoff', async () => {\n  const delays: number[] = [];\n  let callCount = 0;\n  const fn = vi.fn(async () => {\n    callCount++;\n    if (callCount < 3) {\n      throw new Error('Retry me');\n    }\n    return 'success';\n  });\n  \n  const startTime = Date.now();\n  await withRetry(fn, 3, 100); // base delay 100ms\n  const totalTime = Date.now() - startTime;\n  \n  // Should have delays of ~100ms (attempt 1) + ~200ms (attempt 2) = 300ms\n  // With jitter (0-100ms), total should be between 300-500ms\n  expect(totalTime).toBeGreaterThanOrEqual(300);\n  expect(totalTime).toBeLessThan(600); // accounting for jitter\n});"
+          },
+          {
+            "type": "branch",
+            "location": "withRetry() - all retries exhausted",
+            "priority": "high",
+            "reasoning": "Must verify that after maxRetries attempts, ReviewError is thrown with RETRY_EXHAUSTED code",
+            "suggestedTest": "it('should throw ReviewError after all retries exhausted', async () => {\n  const fn = vi.fn().mockRejectedValue(new Error('Always fails'));\n  \n  await expect(withRetry(fn, 3, 100)).rejects.toThrow(ReviewError);\n  \n  try {\n    await withRetry(fn, 3, 100);\n  } catch (error) {\n    if (error instanceof ReviewError) {\n      expect(error.code).toBe(ErrorCodes.RETRY_EXHAUSTED);\n      expect(error.metadata?.maxRetries).toBe(3);\n      expect(error.message).toContain('failed after 3 retries');\n    }\n  }\n});"
+          },
+          {
+            "type": "function",
+            "location": "withTimeout() - operation completes before timeout",
+            "priority": "high",
+            "reasoning": "withTimeout must return result if function completes within timeout window",
+            "suggestedTest": "it('should return result if operation completes before timeout', async () => {\n  const fn = vi.fn(async () => {\n    await new Promise(resolve => setTimeout(resolve, 50));\n    return 'completed';\n  });\n  \n  const result = await withTimeout(fn, 1000);\n  expect(result).toBe('completed');\n});"
+          },
+          {
+            "type": "branch",
+            "location": "withTimeout() - operation exceeds timeout",
+            "priority": "high",
+            "reasoning": "Critical that timeout is enforced - must throw ReviewError with AGENT_TIMEOUT code",
+            "suggestedTest": "it('should throw timeout error if operation exceeds timeout', async () => {\n  const fn = vi.fn(async () => {\n    await new Promise(resolve => setTimeout(resolve, 2000));\n    return 'completed';\n  });\n  \n  await expect(withTimeout(fn, 100)).rejects.toThrow(ReviewError);\n  \n  try {\n    await withTimeout(fn, 100);\n  } catch (error) {\n    if (error instanceof ReviewError) {\n      expect(error.code).toBe(ErrorCodes.AGENT_TIMEOUT);\n      expect(error.metadata?.timeoutMs).toBe(100);\n    }\n  }\n});"
+          },
+          {
+            "type": "edge-case",
+            "location": "isReviewError() - type guard function",
+            "priority": "low",
+            "reasoning": "Type guard must correctly identify ReviewError instances vs other error types",
+            "suggestedTest": "it('should correctly identify ReviewError instances', () => {\n  const reviewError = new ReviewError('test', ErrorCodes.AGENT_TIMEOUT);\n  const standardError = new Error('standard');\n  const plainObj = { message: 'not an error' };\n  \n  expect(isReviewError(reviewError)).toBe(true);\n  expect(isReviewError(standardError)).toBe(false);\n  expect(isReviewError(plainObj)).toBe(false);\n  expect(isReviewError(null)).toBe(false);\n});"
+          }
+        ],
+        "coverageEstimate": 25,
+        "summary": "No tests for error handling utilities, though they're used throughout the system (withRetry in main.ts, withTimeout wrapping orchestrator). These utilities need comprehensive testing for: successful operations, exponential backoff timing, retry exhaustion, timeout enforcement, and type guards. The timing-based tests require care to handle jitter."
+      },
+      "refactorings": {
+        "file": "src/utils/error-handler.ts",
+        "suggestions": [
+          {
+            "type": "modernize",
+            "location": "Lines 19-40 - ErrorCodes definition",
+            "impact": "low",
+            "description": "Using const object with type derived from keyof is correct but could be more explicit with 'as const'",
+            "before": "export const ErrorCodes = {\n  MISSING_API_KEY: 'MISSING_API_KEY',\n  // ... 10+ more entries\n} as const;\n\nexport type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];",
+            "after": "export const ErrorCodes = {\n  MISSING_API_KEY: 'MISSING_API_KEY',\n  MISSING_GITHUB_TOKEN: 'MISSING_GITHUB_TOKEN',\n  INVALID_CONFIG: 'INVALID_CONFIG',\n  PR_NOT_FOUND: 'PR_NOT_FOUND',\n  FILE_NOT_FOUND: 'FILE_NOT_FOUND',\n  GITHUB_API_ERROR: 'GITHUB_API_ERROR',\n  RATE_LIMITED: 'RATE_LIMITED',\n  AGENT_TIMEOUT: 'AGENT_TIMEOUT',\n  AGENT_FAILED: 'AGENT_FAILED',\n  STRUCTURED_OUTPUT_FAILED: 'STRUCTURED_OUTPUT_FAILED',\n  RETRY_EXHAUSTED: 'RETRY_EXHAUSTED',\n  VALIDATION_FAILED: 'VALIDATION_FAILED',\n  UNKNOWN_ERROR: 'UNKNOWN_ERROR'\n} as const;\n\n// More explicit type that's already correct\nexport type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];",
+            "benefits": "Explicit 'as const' makes intent clear. TypeScript correctly infers literal string types. Enables autocomplete for error codes. No functional change but better clarity."
+          }
+        ],
+        "summary": "One minor modernization suggestion for ErrorCodes definition (low impact, clarity only). Overall code quality is excellent with comprehensive documentation and well-designed error handling patterns."
+      }
+    }
+  ],
+  "summary": {
+    "totalFiles": 6,
+    "overallScore": 76,
+    "criticalIssues": 2,
+    "highPriorityTests": 32,
+    "refactoringOpportunities": 10
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "Testing",
+      "description": "Implement comprehensive test suite for CodeReviewOrchestrator and main.ts entry point. These are the most critical files with zero test coverage. Tests needed for orchestration flow, schema validation, error handling, and authentication validation. Recommend targeting 80%+ coverage.",
+      "files": [
+        "tests/orchestrator.test.ts",
+        "src/orchestrator.ts",
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "critical",
+      "category": "Security",
+      "description": "Remove logging of API key substrings in main.ts (lines 103, 121). Never log any part of credentials - use logger.info('✓ Authenticated') instead. This is a security vulnerability that could expose keys in logs/dashboards.",
+      "files": [
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Testing",
+      "description": "Add test coverage for all subagent files (code-quality-analyzer.ts, test-coverage-analyzer.ts, refactoring-suggester.ts). Each agent needs tests for successful analysis, skill invocation tracking, and error handling when output is missing. Recommend 10+ tests per agent.",
+      "files": [
+        "src/agents/code-quality-analyzer.ts",
+        "src/agents/test-coverage-analyzer.ts",
+        "src/agents/refactoring-suggester.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Testing",
+      "description": "Implement validation tests for Zod schemas in src/types/analysis-results.ts. These schemas are critical for data integrity - test that valid data passes, invalid data fails, enums are enforced, and score ranges (0-100) are validated.",
+      "files": [
+        "src/types/analysis-results.ts"
+      ]
+    },
+    {
+      "priority": "high",
+      "category": "Testing",
+      "description": "Add unit tests for error handling utilities (src/utils/error-handler.ts). Critical to test withRetry exponential backoff timing, withTimeout enforcement, and ReviewError thrown with correct error codes.",
+      "files": [
+        "src/utils/error-handler.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Code Quality",
+      "description": "Extract argument validation and authentication validation logic from main.ts into separate functions. This improves readability, testability, and maintainability. main() would reduce from 345 to ~250 lines.",
+      "files": [
+        "src/main.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Code Quality",
+      "description": "Improve error context when orchestrator schema validation fails. Currently truncates output to 500 chars which may hide important details. Store full output in debug logger while keeping user message concise.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Code Quality",
+      "description": "Extract complex query processing logic from orchestrator.ts (lines 128-227) into dedicated private method. This reduces function complexity and improves testability.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    },
+    {
+      "priority": "medium",
+      "category": "Maintainability",
+      "description": "Extract duplicate toJsonSchema utility function used in both analysis-results.ts and report-types.ts into shared src/utils/schema.ts module. Improves DRY principle.",
+      "files": [
+        "src/types/analysis-results.ts",
+        "src/types/report-types.ts"
+      ]
+    },
+    {
+      "priority": "low",
+      "category": "Code Quality",
+      "description": "Add model validation in CodeReviewOrchestrator constructor. Validate model against list of supported models to catch typos early. Create SUPPORTED_MODELS constant and throw informative error.",
+      "files": [
+        "src/orchestrator.ts"
+      ]
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-23T00:00:00Z",
+    "duration": 45000,
+    "agentVersions": {
+      "orchestrator": "1.0",
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}

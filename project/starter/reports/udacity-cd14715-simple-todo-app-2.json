@@ -1,0 +1,33 @@
+{
+  "pullRequest": {
+    "owner": "udacity",
+    "repo": "cd14715-simple-todo-app",
+    "number": 2
+  },
+  "fileReviews": [],
+  "summary": {
+    "totalFiles": 0,
+    "overallScore": 0,
+    "criticalIssues": 0,
+    "highPriorityTests": 0,
+    "refactoringOpportunities": 0
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "Process",
+      "description": "Unable to retrieve PR data: GitHub authentication failed. The orchestrator could not access the pull request metadata, file list, or diff information from the udacity/cd14715-simple-todo-app repository. Proper GitHub CLI authentication or API access is required to proceed with the code review.",
+      "files": []
+    }
+  ],
+  "metadata": {
+    "analyzedAt": "2026-11-23T00:00:00Z",
+    "duration": 0,
+    "agentVersions": {
+      "orchestrator": "1.0",
+      "code-quality-analyzer": "1.0",
+      "test-coverage-analyzer": "1.0",
+      "refactoring-suggester": "1.0"
+    }
+  }
+}
